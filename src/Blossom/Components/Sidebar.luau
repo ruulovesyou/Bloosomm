@@ -46,7 +46,7 @@ function Sidebar:AddPage(page, groupName)
     end
     local button = r:Create('TextButton', {
         Name = 'Page_' .. page.Id, Text = '', Size = UDim2.new(1, 0, 0, Tokens.NavHeight), LayoutOrder = #self.items + 1,
-    }, group, {BackgroundColor3 = 'Sidebar'})
+    }, group)
     r:Corner(button, 4)
     local marker = r:Create('Frame', {Name = 'Marker', Position = UDim2.fromOffset(8, 10), Size = UDim2.fromOffset(4, 4)}, button)
     r:Corner(marker, 4)

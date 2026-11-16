@@ -7,7 +7,7 @@ local Dropdown = {}
 function Dropdown.new(context, section, options)
     local normalize = Value.dropdown(options.Options)
     local choices = table.clone(options.Options)
-    local self = Control.new(context, section, options, 'Dropdown', options.Default or choices[1], normalize, 42)
+    local self = Control.new(context, section, options, 'Dropdown', if options.Default == nil then choices[1] else options.Default, normalize, 42)
     local r = context.Renderer
     self.Label.Size = UDim2.new(1, 0, 0, 18)
     local field = r:Create('TextButton', {Name = 'Dropdown', Text = '', Position = UDim2.fromOffset(0, 20), Size = UDim2.new(1, 0, 0, Tokens.FieldHeight)}, self.Frame)

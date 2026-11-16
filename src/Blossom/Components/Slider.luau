@@ -7,10 +7,12 @@ local Tokens = require(script.Parent.Parent.Themes.Tokens)
 local Slider = {}
 
 function Slider.new(context, section, options)
-    local minimum, maximum, step = options.Minimum or 0, options.Maximum or 100, options.Step or 1
+    local minimum = if options.Minimum == nil then 0 else options.Minimum
+    local maximum = if options.Maximum == nil then 100 else options.Maximum
+    local step = if options.Step == nil then 1 else options.Step
     local normalize = Value.slider(minimum, maximum, step)
     assert(options.Unit == nil or type(options.Unit) == 'string', 'Unit must be a string')
-    local self = Control.new(context, section, options, 'Slider', options.Default or minimum, normalize, Tokens.SliderHeight)
+    local self = Control.new(context, section, options, 'Slider', if options.Default == nil then minimum else options.Default, normalize, Tokens.SliderHeight)
     local r = context.Renderer
     self.Label.Size = UDim2.new(1, -42, 0, 18)
     local valueLabel = r:Label(self.Frame, '', {Position = UDim2.new(1, -44, 0, 0), Size = UDim2.fromOffset(44, 18), TextXAlignment = Enum.TextXAlignment.Right, TextSize = Tokens.SmallText}, 'InactiveText')

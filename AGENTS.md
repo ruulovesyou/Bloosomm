@@ -12,6 +12,7 @@ The first agent implements the foundation: window, grouped sidebar/pages, two in
 - Dependency direction: entry point -> window/page/section/components -> Core -> Themes/pure utilities. Core never requires components. Demo requires only the public library.
 - Stable control IDs are unique across a library instance; section IDs are unique per page; page IDs are unique. Register metadata including label, type, page and section for future search.
 - One library owns its ScreenGui and resources; Destroy is idempotent. No untracked global input connections or per-frame idle loops.
+- InputObject.Position and GuiObject.AbsolutePosition use the same inset-relative coordinates. Compare directly; scale local popup positions once. Ignore additional pointers during an active drag, and restore column scrolling on every cancellation path.
 
 ## Conventions and standards
 - PascalCase module filenames/public methods/options, camelCase locals, descriptive stable snake_case IDs.
@@ -30,4 +31,4 @@ The first agent implements the foundation: window, grouped sidebar/pages, two in
 - No advanced search, keybind editor, color picker, profiles/persistence, theme preset suite, or detachable sections in this phase. The reserved search affordance must visibly indicate its unavailable state.
 
 ## Future agents
-First reproduce documented validation. Respect public APIs and Store ownership. Add the next documented feature incrementally; update demo, tests and docs together. The repository must be sufficient without chat history. Never label unrun Studio/manual/visual tests as passed.
+First run `tools/verify.ps1`, then the Studio smoke/manual gate in `tests/MANUAL_QA.md`. Respect public APIs and Store ownership. Add the next documented feature incrementally; update demo, tests and docs together. The repository must be sufficient without chat history. Never label unrun Studio/manual/visual tests as passed. First-agent scope is complete; see HANDOFF.md for the exact continuation task.

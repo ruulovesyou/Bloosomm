@@ -21,6 +21,8 @@ function Value.slider(minimum: number, maximum: number, step: number): (any) -> 
     Value.finite(maximum)
     Value.finite(step)
     assert(maximum > minimum and step > 0, 'Slider requires Maximum > Minimum and Step > 0')
+    Value.finite(maximum - minimum)
+    Value.finite((maximum - minimum) / step)
     return function(value: any): number
         local bounded = math.clamp(Value.finite(value), minimum, maximum)
         if bounded == maximum then return maximum end
@@ -32,6 +34,12 @@ end
 function Value.dropdown(options: {string}): (any) -> string
     assert(type(options) == 'table' and #options > 0, 'Dropdown requires options')
     local members: {[string]: boolean} = {}
+    local count = 0
+    for index in pairs(options) do
+        assert(type(index) == 'number' and index % 1 == 0 and index >= 1 and index <= #options, 'Options must be a dense array')
+        count += 1
+    end
+    assert(count == #options, 'Options must be a dense array')
     for _, option in ipairs(options) do
         Value.id(option)
         assert(not members[option], 'Duplicate dropdown option: ' .. option)

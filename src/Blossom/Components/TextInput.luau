@@ -7,7 +7,8 @@ local TextInput = {}
 function TextInput.new(context, section, options)
     assert(options.OnSubmitted == nil or type(options.OnSubmitted) == 'function', 'OnSubmitted must be a function')
     assert(options.Placeholder == nil or type(options.Placeholder) == 'string', 'Placeholder must be a string')
-    local self = Control.new(context, section, options, 'TextInput', options.Default or '', Value.text(options.MaxLength or 200), 42)
+    local maxLength = if options.MaxLength == nil then 200 else options.MaxLength
+    local self = Control.new(context, section, options, 'TextInput', if options.Default == nil then '' else options.Default, Value.text(maxLength), 42)
     local r = context.Renderer
     self.Label.Size = UDim2.new(1, 0, 0, 18)
     local field = r:Create('TextBox', {

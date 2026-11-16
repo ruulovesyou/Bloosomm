@@ -23,10 +23,11 @@ end
 function InputManager:Begin(input, move, finish)
     local mouse = input.UserInputType == Enum.UserInputType.MouseButton1
     if not mouse and input.UserInputType ~= Enum.UserInputType.Touch then return false end
-    self:Cancel()
-    self.active = {input = input, mouse = mouse, move = move, finish = finish}
+    if self.active then return false end
+    local active = {input = input, mouse = mouse, move = move, finish = finish}
+    self.active = active
     move(Vector2.new(input.Position.X, input.Position.Y))
-    return true
+    return self.active == active
 end
 
 function InputManager:Cancel()
