@@ -1,7 +1,7 @@
 # Handoff to Gemini 4 Argon / Google Antigravity
 
 ## Current state
-M0 documentation checkpoint, 2026-11-16. Repository was empty. First agent is building the explicitly bounded foundation; implementation has not started at this checkpoint. Read AGENTS.md, PROGRESS.md and the complete local reference.
+M4 checkpoint, 2026-11-16. Foundation and demo implemented, three Rojo artifacts build, 23 Luau files compile and eight pure tests pass. Package verification and final review in progress. Native Studio acceptance remains unrun.
 
 ## Files at this checkpoint
 - `AGENTS.md`: objective, architecture, naming, development/design rules and phase boundary.
@@ -20,7 +20,9 @@ M0 documentation checkpoint, 2026-11-16. Repository was empty. First agent is bu
 Native client UI; no external runtime dependencies or game effects. Central Store owns values, registry owns metadata. Per-window cleanup and a single active popup. Two independent column ScrollingFrames. Only whole-window dragging in this phase. Reference section dragging/search/profiles/color pickers are second-agent work. Default reference-scale typography is compact; configurable UIScale provides a larger alternative.
 
 ## Exact stopping/recovery point
-Documentation created before implementation. Next: implement and verify pure core Store/Value/Cleanup, then rendering infrastructure. No component work is complete yet.
+Implemented: Cleanup/Value/Store/Renderer/ThemeManager/InputManager/OverlayManager; Themes/Blossom and Tokens; Window/Sidebar/Page/Section/Control/Toggle/Slider/Dropdown/Button/TextInput; public init.luau; tests/core.spec.luau. Six core tests and pure-module strict analysis pass with Luau CLI 0.747. Next: demo + Rojo model/place build + Studio smoke-test source + final review. Official Rojo 7.7.1 and video extraction dependency acquired into ignored `.tools`; reference frame at `reference/recording-00m02s.png`.
+
+Git initial author configuration was absent; an explicit agent identity `Codex <codex@localhost>` is used through command-local flags, without changing user Git configuration. `.tools` is ignored and contains downloaded official CLI binaries. Root `.git` writes require sandbox escalation in this environment.
 
 ## Known integration issues
 No Studio or Luau tooling detected at intake; do not equate headless checks with native rendering/input verification. Original recording exists outside repo, but only the blueprint is currently repository-contained. A local reference frame may be added if extraction tools are available.

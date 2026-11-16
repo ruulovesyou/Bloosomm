@@ -1,0 +1,4 @@
+{
+  "name": "Blossom",
+  "tree": { "$path": "src/Blossom" }
+}
