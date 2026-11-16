@@ -1,0 +1,8 @@
+{
+  "name": "BlossomDemo",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": { "Blossom": { "$path": "src/Blossom" } },
+    "StarterPlayer": { "StarterPlayerScripts": { "BlossomDemo": { "$path": "src/Demo/DemoApp.client.luau" } } }
+  }
+}
