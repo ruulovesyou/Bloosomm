@@ -1,6 +1,4 @@
--- Blossom UI Library - single-file bundle (generated)
--- Recreates the script.Core / script.Components / script.Themes tree so the
--- original require(script.Parent...) paths work under loadstring.
+--update V1.6
 
 local function __node(name, parent)
     local node = {Name = name, Parent = parent, _children = {}}
@@ -2115,6 +2113,11 @@ local function option(options, lower, upper, fallback)
     return fallback
 end
 
+local function safeCallback(callback, ...)
+    local ok, problem = pcall(callback, ...)
+    if not ok then warn('[Blossom callback] ' .. tostring(problem)) end
+end
+
 local function elementOptions(options, kind)
     local name = option(options, 'name', 'Name', kind)
     local result = table.clone(options)
@@ -2132,7 +2135,17 @@ local function pageAdapter(page)
         if options.flag == nil and options.Flag == nil then result.Id = page.Id .. '_' .. result.Id end
         return result
     end
-    function adapter:CreateSection(options) return page:AddSection({Id = slug(option(options, 'name', 'Name', 'section')), Title = option(options, 'name', 'Name', 'Section'), Column = option(options, 'column', 'Column', 1)}) end
+    function adapter:CreateSection(options)
+        options = options or {}
+        local section = page:AddSection({
+            Id = slug(option(options, 'name', 'Name', 'section')),
+            Title = option(options, 'name', 'Name', 'Section'),
+            Column = option(options, 'column', 'Column', 1),
+            Description = option(options, 'description', 'Description', nil),
+        })
+        self._section = section
+        return section
+    end
     function adapter:CreateToggle(options) return self._section:AddToggle(scoped(options, 'Toggle')) end
     function adapter:CreateSlider(options)
         local result = scoped(options, 'Slider')
@@ -2146,7 +2159,7 @@ local function pageAdapter(page)
         local result = scoped(options, 'Dropdown')
         result.Options = option(options, 'options', 'Options', {})
         result.Default = option(options, 'value', 'Value', result.Options[1])
-        assert(not option(options, 'multiSelect', 'MultiSelect', false), 'Blossom dropdowns currently support single selection only')
+        assert(not option(options, 'multiSelect', 'MultiSelect', false), 'This bundled build supports single-selection dropdowns only')
         return self._section:AddDropdown(result)
     end
     function adapter:CreateButton(options) return self._section:AddButton({Id = slug(option(options, 'flag', 'Flag', option(options, 'name', 'Name', 'button'))), Label = option(options, 'name', 'Name', 'Button'), OnClick = option(options, 'callback', 'Callback', nil)}) end
@@ -2162,6 +2175,16 @@ local function pageAdapter(page)
         local color = option(options, 'color', 'Color', Color3.fromRGB(116, 169, 227))
         local result = scoped(options, 'ColorPicker')
         result.Default = {R = color.R, G = color.G, B = color.B, Alpha = 1, Animation = 'None'}
+        local callback = result.OnChanged
+        if callback then
+            result.OnChanged = function(value)
+                if type(value) == 'table' and value.R and value.G and value.B then
+                    safeCallback(callback, Color3.new(value.R, value.G, value.B))
+                else
+                    safeCallback(callback, value)
+                end
+            end
+        end
         return self._section:AddColorPicker(result)
     end
     function adapter:CreateList(options)
@@ -2243,7 +2266,10 @@ function Blossom:CreateWindow(options)
         return {Name = option(options or {}, 'name', 'Name', 'Section')}
     end
     function window:ChangeTheme(value) if value == 'default' then value = 'Blossom' end; self:SetThemePreset(value) end
-    function window:Save(name) self:CreateProfile(name or 'Default') end
+    function window:Save(name)
+        name = name or 'Default'
+        if table.find(self:ListProfiles(), name) then self:OverwriteProfile(name) else self:CreateProfile(name) end
+    end
     function window:Load(name) self:LoadProfile(name or 'Default') end
     function window:ListConfigs() return self:ListProfiles() end
     function window:DeleteConfig(name) self:DeleteProfile(name) end
