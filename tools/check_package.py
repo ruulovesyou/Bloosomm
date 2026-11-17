@@ -62,5 +62,5 @@ def check_package(path: Path):
     print(f'PASS {path.name}: {len(modules)} modules, {sum(map(len, graph.values()))} resolved dependency edges, no cycles, {len(local_scripts)} client entry points')
 
 
-for artifact in ['Blossom.rbxmx', 'BlossomDemo.rbxlx', 'BlossomSmokeTests.rbxlx']:
+for artifact in ['Blossom.rbxmx', 'BlossomDemo.rbxlx']:
     check_package(ROOT / 'build' / artifact)

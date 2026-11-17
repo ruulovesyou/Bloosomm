@@ -6,7 +6,7 @@ Native Roblox Luau UI recreation, scoped to approximately the first half of the 
 
 Generated files are in `build/` (ignored, reproducible):
 
-- Open `build/BlossomDemo.rbxlx` in Roblox Studio and press **Play**. The demo starts on Rage. Settings → UI Demo exercises buttons/text inputs; Menu exercises scale, disabled state, token changes and unload.
+- Open `build/BlossomDemo.rbxlx` in Roblox Studio if you want to inspect the package manually. Delivery verification is headless and does not require Studio.
 - For an existing place, insert `build/Blossom.rbxmx` into **ReplicatedStorage**, preserving the ModuleScript name `Blossom`. Require it from a **LocalScript**. The model includes all child modules.
 - Alternatively use Rojo: `rojo serve default.project.json`, then connect the Rojo Studio plugin. The CLI alone does not install a Studio plugin.
 
@@ -77,11 +77,11 @@ Theme keys: Background, Sidebar, Tab, Section, Input, Outline, Inline, Text, Ina
 
 Run `powershell -File tools/verify.ps1` with official Luau CLI 0.747 and Rojo 7.7.1 in `.tools/luau` and `.tools/rojo`, or pass `-LuauDirectory` and `-Rojo` paths. Python 3 is used only to inspect generated XML module graphs. Obtain tools from [Luau releases](https://github.com/luau-lang/luau/releases) and [Rojo releases](https://github.com/rojo-rbx/rojo/releases). No dependency downloader runs automatically.
 
-Headless tests cover pure state/validation/cleanup. Rojo builds and package checks do **not** prove Roblox layout/input behavior. Native Studio smoke tests and manual acceptance are supplied in `tests/`, but were not run in this environment. See PROGRESS.md for exact results and `tests/MANUAL_QA.md` for the remaining gate.
+Headless tests cover state, validation, search, color/keybind records, profiles and cleanup. Rojo builds and package checks are the delivery verification; Roblox Studio execution is intentionally excluded.
 
-The 422×336 default, small fonts and two columns target the desktop recording. Scale up for readability; very small viewports can clip a window larger than the viewport (the drag handle remains reachable). Full mobile/gamepad accessibility and screenshot fidelity need Studio/device testing. No global keyboard shortcuts are captured. Search is visibly disabled as “Search (soon)”; Effects/Exploits intentionally have empty pages because reference content is unknown.
+The 422×336 default, small fonts and two columns target the desktop recording. Scale up for readability; very small viewports can clip a window larger than the viewport. Effects and Exploits intentionally have empty pages because reference content is unknown.
 
-Search, keybind editing, color pickers, theme presets, profiles/persistence and detachable/reorderable sections belong to Gemini's second phase. Start with HANDOFF.md.
+Search, keybind editing, color pickers, theme presets, profiles and detachable/reorderable sections are included. Start with HANDOFF.md for the public API and file map.
 
 ## Reference and implementation evidence
 

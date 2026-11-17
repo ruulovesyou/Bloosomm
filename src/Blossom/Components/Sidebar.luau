@@ -23,13 +23,15 @@ function Sidebar.new(context, title)
     }, frame)
     r:List(nav, 3)
     local search = r:Create('TextButton', {
-        Name = 'SearchReserved', Text = 'Search (soon)', TextSize = Tokens.SmallText,
+        Name = 'Search', Text = 'Search...', TextSize = Tokens.SmallText,
         Position = UDim2.new(0, 8, 1, -28), Size = UDim2.new(1, -16, 0, 20),
-        Active = false, Selectable = false, Interactable = false,
+        Active = true, Selectable = true, Interactable = true,
     }, frame, {BackgroundColor3 = 'Input', TextColor3 = 'InactiveText'})
     r:Corner(search)
     r:Stroke(search, 'Inline')
-    return setmetatable({context = context, nav = nav, groups = {}, items = {}, order = 0}, Sidebar)
+    r:Feedback(search)
+    r:Connect(search.Activated, function() context.Search:Open() end)
+    return setmetatable({context = context, nav = nav, groups = {}, items = {}, order = 0, search = search}, Sidebar)
 end
 
 function Sidebar:AddPage(page, groupName)

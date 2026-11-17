@@ -30,6 +30,7 @@ function OverlayManager:Close()
     local current = self.current
     if not current then return end
     self.current = nil
+    self.context.Input:Cancel()
     local selected = GuiService.SelectedObject
     if selected and selected:IsDescendantOf(current.frame) then GuiService.SelectedObject = nil end
     current.scope:Destroy()
@@ -37,8 +38,9 @@ function OverlayManager:Close()
     if current.closed then current.closed() end
 end
 
-function OverlayManager:Open(owner, anchor, requestedHeight, closed)
+function OverlayManager:Open(owner, anchor, requestedHeight, closed, settings)
     self:Close()
+    settings = settings or {}
     local context = self.context
     local scope = Cleanup.new()
     local renderer = Renderer.new(context.Theme, scope, context.Renderer.ReducedMotion)
@@ -46,7 +48,7 @@ function OverlayManager:Open(owner, anchor, requestedHeight, closed)
     local viewport = context.Viewport
     local edge = 4 * scale
     local height = math.min(requestedHeight * scale, math.max(1, viewport.AbsoluteSize.Y - edge * 2))
-    local width = math.min(anchor.AbsoluteSize.X, math.max(1, viewport.AbsoluteSize.X - edge * 2))
+    local width = math.min(settings.Width and settings.Width * scale or anchor.AbsoluteSize.X, math.max(1, viewport.AbsoluteSize.X - edge * 2))
     local minX, minY = viewport.AbsolutePosition.X + edge, viewport.AbsolutePosition.Y + edge
     local maxX = math.max(minX, viewport.AbsolutePosition.X + viewport.AbsoluteSize.X - width - edge)
     local maxY = math.max(minY, viewport.AbsolutePosition.Y + viewport.AbsoluteSize.Y - height - edge)
@@ -55,17 +57,22 @@ function OverlayManager:Open(owner, anchor, requestedHeight, closed)
     if y > maxY then y = anchor.AbsolutePosition.Y - height - edge end
     y = math.clamp(y, minY, maxY)
     local origin = self.layer.AbsolutePosition
-    local frame = renderer:Create('ScrollingFrame', {
+    local properties = {
         Name = 'DropdownPopup', Position = UDim2.fromOffset((x - origin.X) / scale, (y - origin.Y) / scale),
-        Size = UDim2.fromOffset(width / scale, height / scale), ZIndex = 30,
-        CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y,
-        ScrollBarThickness = 2, ScrollingDirection = Enum.ScrollingDirection.Y,
+        Size = UDim2.fromOffset(width / scale, height / scale), ZIndex = settings.ZIndex or 30,
         Active = true, ClipsDescendants = true,
-    }, self.layer, {BackgroundColor3 = 'Background', ScrollBarImageColor3 = 'Accent'})
+    }
+    if not settings.Freeform then
+        properties.CanvasSize = UDim2.new()
+        properties.AutomaticCanvasSize = Enum.AutomaticSize.Y
+        properties.ScrollBarThickness = 2
+        properties.ScrollingDirection = Enum.ScrollingDirection.Y
+    end
+    local frame = renderer:Create(settings.Freeform and 'Frame' or 'ScrollingFrame', properties, self.layer, {BackgroundColor3 = 'Background'})
+    if not settings.Freeform then renderer.Theme:Bind(scope, frame, 'ScrollBarImageColor3', 'Accent') end
     renderer:Corner(frame, 4)
     renderer:Stroke(frame)
-    renderer:Padding(frame, 3)
-    renderer:List(frame, 1)
+    if not settings.Freeform then renderer:Padding(frame, 3); renderer:List(frame, 1) end
     self.current = {owner = owner, anchor = anchor, frame = frame, scope = scope, closed = closed}
     renderer:Connect(anchor:GetPropertyChangedSignal('AbsolutePosition'), function() self:Close() end)
     renderer:Connect(anchor:GetPropertyChangedSignal('AbsoluteSize'), function() self:Close() end)

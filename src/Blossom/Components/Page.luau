@@ -23,7 +23,8 @@ function Page.new(context, options)
         r:Create('UIPadding', {PaddingBottom = UDim.new(0, 2), PaddingRight = UDim.new(0, 3)}, column)
         columns[index] = column
     end
-    return setmetatable({Id = options.Id, Title = options.Title, Frame = frame, Columns = columns, Sections = {}, context = context, count = 0}, Page)
+    local floating = r:Create('Frame', {Name = 'Floating_' .. options.Id, BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), Visible = false, ZIndex = 20}, context.Root)
+    return setmetatable({Id = options.Id, Title = options.Title, Frame = frame, Floating = floating, Columns = columns, Sections = {}, context = context, count = 0}, Page)
 end
 
 function Page:AddSection(options)

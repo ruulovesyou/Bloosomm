@@ -28,7 +28,7 @@ function ThemeManager:Set(overrides)
         assert(self.colors[token] and typeof(color) == 'Color3', 'Invalid theme token/color: ' .. tostring(token))
     end
     for token, color in pairs(overrides) do self.colors[token] = color end
-    for callback in pairs(self.listeners) do callback() end
+    for callback in pairs(table.clone(self.listeners)) do if self.listeners[callback] then callback() end end
 end
 
 function ThemeManager:Destroy()

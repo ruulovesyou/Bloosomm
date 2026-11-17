@@ -1,8 +1,0 @@
-{
-  "name": "BlossomSmokeTests",
-  "tree": {
-    "$className": "DataModel",
-    "ReplicatedStorage": { "Blossom": { "$path": "../src/Blossom" } },
-    "StarterPlayer": { "StarterPlayerScripts": { "BlossomSmoke": { "$path": "StudioSmoke.client.luau" } } }
-  }
-}

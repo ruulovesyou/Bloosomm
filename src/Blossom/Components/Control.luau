@@ -22,6 +22,7 @@ function Control.new(context, section, options, kind, default, normalize, height
         Id = options.Id, Label = options.Label, Type = kind,
         PageId = section.Page.Id, PageTitle = section.Page.Title,
         SectionId = section.Id, SectionTitle = section.Title,
+        Persist = options.Persist ~= false,
     })
     if normalize then context.Store:Register(options.Id, default, normalize, metadata) end
     section.count += 1
@@ -35,7 +36,7 @@ function Control.new(context, section, options, kind, default, normalize, height
     }, row)
     local self = setmetatable({
         Id = options.Id, Frame = row, Label = label, Metadata = metadata,
-        Disabled = options.Disabled or false, context = context, hasValue = normalize ~= nil,
+        Disabled = options.Disabled or false, context = context, hasValue = normalize ~= nil, Section = section,
         refreshers = {}, targets = {},
     }, Control)
     context.Registry[options.Id] = self

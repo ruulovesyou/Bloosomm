@@ -19,18 +19,19 @@ try {
     Write-Output 'PASS strict analysis: Value, Store, Cleanup'
     & (Join-Path $LuauDirectory 'luau.exe') tests/core.spec.luau
     if ($LASTEXITCODE -ne 0) { throw 'Core tests failed' }
+    & (Join-Path $LuauDirectory 'luau.exe') tests/advanced.spec.luau
+    if ($LASTEXITCODE -ne 0) { throw 'Advanced tests failed' }
     New-Item -ItemType Directory -Path build -Force | Out-Null
     foreach ($build in @(
         @('default.project.json', 'build/BlossomDemo.rbxlx'),
-        @('library.project.json', 'build/Blossom.rbxmx'),
-        @('tests/studio.project.json', 'build/BlossomSmokeTests.rbxlx')
+        @('library.project.json', 'build/Blossom.rbxmx')
     )) {
         & $Rojo build $build[0] --output $build[1]
         if ($LASTEXITCODE -ne 0) { throw "Rojo build failed: $($build[0])" }
     }
     python tools/check_package.py
     if ($LASTEXITCODE -ne 0) { throw 'Package structure verification failed' }
-    Write-Output 'Headless checks passed. Studio smoke/manual UI checks remain separate.'
+    Write-Output 'All configured headless checks passed.'
 } finally {
     Pop-Location
 }

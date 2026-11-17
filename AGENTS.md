@@ -3,7 +3,7 @@
 ## Objective and boundary
 Recreate the compact Blossom interface with native Roblox UI instances and reusable Luau APIs. The source specification is `reference/blossom-library-ui-recreation.md`; its full-build prompt is reference material, not authorization to expand this phase.
 
-The first agent implements the foundation: window, grouped sidebar/pages, two independent section columns, tokens, state/registration, toggle/slider/dropdown/button/text input, restrained interactions, window dragging, and a demo. Stop at this boundary. Gemini 4 Argon in Google Antigravity owns the remaining features. Read PROGRESS.md and HANDOFF.md before changes.
+The user expanded scope to the complete library and removed Roblox Studio testing from delivery requirements. Implement all specified interface features, finish available headless verification, and keep documentation current. The former first-50% boundary and Gemini-only ownership no longer apply.
 
 ## Stack and architecture
 - Roblox Luau, native Instances, TweenService and UserInputService; client-only under PlayerGui. No external runtime dependencies, executors, HTTP loaders, remotes, or gameplay changes.
@@ -19,7 +19,7 @@ The first agent implements the foundation: window, grouped sidebar/pages, two in
 - Native Roblox types, `--!strict` for pure logic, `--!nonstrict` only where dynamic Instance construction/object composition needs it; never claim full static typing without a Roblox-aware check.
 - Validate public options before constructing controls. Programmatic SetValue uses the same normalization and Store path as interaction. Unchanged values do not dispatch; callback failures must not break other subscribers.
 - Scope connections, theme bindings and active tweens. Preserve values on page changes; close overlays and cancel drags on hide/page change/destroy.
-- Tests should exercise meaningful state, normalization and lifecycle behavior. Keep Studio integration tests separate from headless tests; no simulated engine test may be called a Studio pass.
+- Tests should exercise meaningful state, normalization, serialization and lifecycle behavior. Use headless Luau, static analysis and package checks. Roblox Studio testing is excluded by user request; do not claim native execution or pixel-perfect verification.
 - Update PROGRESS.md and HANDOFF.md at every stable milestone and record failures immediately. Commit stable milestones if Git works; never overwrite unrelated work.
 
 ## Design requirements
@@ -28,7 +28,7 @@ The first agent implements the foundation: window, grouped sidebar/pages, two in
 - Dropdowns use a higher overlay layer, outside-click/Escape dismissal, bounded scroll and upward placement when needed. Only one popup at once.
 - Support mouse/touch, visible hover/focus/pressed/disabled states, reduced motion option and explicit scale. Compact reference scale is desktop-oriented; do not claim mobile accessibility without device testing.
 - Recorded combat/movement labels are inert UI examples only. Effects/Exploits content is unknown. Do not invent canonical content.
-- No advanced search, keybind editor, color picker, profiles/persistence, theme preset suite, or detachable sections in this phase. The reserved search affordance must visibly indicate its unavailable state.
+- Implement search, keybinds, color picker/animations, theme presets/editor, profiles with validated JSON and injectable storage, and section reorder/detach. Keep all sample behavior UI-only. Default profile storage is session-local; export/import or a host adapter provides durable storage without executor APIs.
 
 ## Future agents
-First run `tools/verify.ps1`, then the Studio smoke/manual gate in `tests/MANUAL_QA.md`. Respect public APIs and Store ownership. Add the next documented feature incrementally; update demo, tests and docs together. The repository must be sufficient without chat history. Never label unrun Studio/manual/visual tests as passed. First-agent scope is complete; see HANDOFF.md for the exact continuation task.
+Run `tools/verify.ps1`. Respect public APIs and Store ownership. Update demo, tests and docs together. The repository must be sufficient without chat history. Studio testing is not a completion gate. Read HANDOFF.md for the current implementation state.

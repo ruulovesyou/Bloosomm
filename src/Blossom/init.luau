@@ -9,6 +9,13 @@ local Renderer = require(script.Core.Renderer)
 local ThemeManager = require(script.Core.ThemeManager)
 local InputManager = require(script.Core.InputManager)
 local OverlayManager = require(script.Core.OverlayManager)
+local ModalManager = require(script.Core.ModalManager)
+local LayoutManager = require(script.Core.LayoutManager)
+local KeybindManager = require(script.Core.KeybindManager)
+local ColorAnimator = require(script.Core.ColorAnimator)
+local ProfileStore = require(script.Core.ProfileStore)
+local Presets = require(script.Themes.Presets)
+local SearchDialog = require(script.Components.SearchDialog)
 local Tokens = require(script.Themes.Tokens)
 local Window = require(script.Components.Window)
 local Sidebar = require(script.Components.Sidebar)
@@ -46,6 +53,12 @@ function Blossom.new(options)
     context.Library = self
     Window.new(context, options)
     context.Overlay = OverlayManager.new(context, context.OverlayLayer)
+    context.Modal = ModalManager.new(context)
+    context.Layout = LayoutManager.new(context)
+    context.Keys = KeybindManager.new(context)
+    context.Animations = ColorAnimator.new(context)
+    context.Profiles = ProfileStore.new(options.SaveProfile)
+    context.Search = {Open = function() SearchDialog.Open(context) end}
     context.Sidebar = Sidebar.new(context, options.Title)
     return self
 end
@@ -80,7 +93,10 @@ function Blossom:SelectPage(id)
     context.Input:Cancel()
     context.Overlay:Close()
     context.CurrentPage = id
-    for pageId, page in pairs(context.Pages) do page.Frame.Visible = pageId == id end
+    for pageId, page in pairs(context.Pages) do
+        page.Frame.Visible = pageId == id
+        page.Floating.Visible = pageId == id
+    end
     context.Sidebar:Refresh()
 end
 
@@ -100,10 +116,58 @@ function Blossom:GetControl(id)
     return self._context.Registry[id]
 end
 
+function Blossom:RevealControl(id)
+    local control = self:GetControl(id)
+    local page = control.Section.Page
+    self:SelectPage(page.Id)
+    if not control.Section.Detached then
+        local column = page.Columns[control.Section.Column]
+        column.CanvasPosition = Vector2.new(0, math.max(0, control.Frame.AbsolutePosition.Y - column.AbsolutePosition.Y - 28))
+    end
+    local frame = control.Frame
+    local original = frame.BackgroundTransparency
+    frame.BackgroundTransparency = 0.05
+    frame.BackgroundColor3 = self._context.Theme:Get('Accent')
+    task.delay(0.35, function()
+        if not self._context.Destroyed and frame.Parent then
+            frame.BackgroundTransparency = original
+            frame.BackgroundColor3 = self._context.Theme:Get('Tab')
+        end
+    end)
+end
+
+function Blossom:SetThemePreset(name)
+    assert(table.find(Presets.Names, name), 'Unknown theme preset: ' .. tostring(name))
+    self._context.ActiveTheme = name
+    self:SetTheme(Presets.Get(name))
+end
+function Blossom:GetThemePresets() return table.clone(Presets.Names) end
+function Blossom:_SnapshotProfile()
+    return {Version = 1, Controls = self:GetValues(), Layout = self._context.Layout:Snapshot(), Page = self._context.CurrentPage, Theme = self._context.ActiveTheme or 'Blossom'}
+end
+function Blossom:CreateProfile(name) self._context.Profiles:Put(name, self:_SnapshotProfile()) end
+function Blossom:OverwriteProfile(name) self._context.Profiles:Put(name, self:_SnapshotProfile(), true) end
+function Blossom:DeleteProfile(name) self._context.Profiles:Delete(name) end
+function Blossom:ListProfiles() return self._context.Profiles:Names() end
+function Blossom:LoadProfile(name)
+    local profile = self._context.Profiles:Get(name)
+    for id, value in pairs(profile.Controls or {}) do if self._context.Registry[id] and self._context.Registry[id].hasValue then self:SetValue(id, value) end end
+    if profile.Layout then self._context.Layout:Apply(profile.Layout) end
+    if profile.Page and self._context.Pages[profile.Page] then self:SelectPage(profile.Page) end
+    if profile.Theme and table.find(Presets.Names, profile.Theme) then self:SetThemePreset(profile.Theme) end
+end
+function Blossom:SetAutoloadProfile(name) self._context.Profiles:SetAutoload(name) end
+function Blossom:ExportProfiles() return game:GetService('HttpService'):JSONEncode(self._context.Profiles.data) end
+function Blossom:ImportProfiles(json)
+    local document = game:GetService('HttpService'):JSONDecode(json)
+    self._context.Profiles:Replace(document, function(snapshot) assert(type(snapshot) == 'table' and snapshot.Version == 1, 'Invalid profile snapshot') end)
+end
+
 function Blossom:SetTheme(overrides)
     local context = self._context
     assert(not context.Destroyed, 'Library destroyed')
     context.Overlay:Close()
+    context.Modal:Close()
     context.Renderer:CancelTweens()
     context.Theme:Set(overrides)
 end

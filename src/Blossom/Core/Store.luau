@@ -5,6 +5,13 @@ type StoreData = {entries: {[string]: Entry}, destroyed: boolean}
 local Store = {}
 Store.__index = Store
 
+local function equal(a: any, b: any): boolean
+    if type(a) ~= 'table' or type(b) ~= 'table' then return a == b end
+    for key, value in pairs(a) do if b[key] ~= value then return false end end
+    for key in pairs(b) do if a[key] == nil then return false end end
+    return true
+end
+
 function Store.new()
     return setmetatable({entries = {} :: {[string]: Entry}, destroyed = false}, Store)
 end
@@ -26,7 +33,7 @@ function Store.Set(self: StoreData, id: string, value: any): boolean
     local entry = self.entries[id]
     assert(entry, 'Unknown control: ' .. id)
     local normalized = entry.normalize(value)
-    if entry.value == normalized then return false end
+    if equal(entry.value, normalized) then return false end
     entry.value = normalized
     -- A snapshot lets callbacks unsubscribe safely without skipping other listeners.
     for _, listener in ipairs(table.clone(entry.listeners)) do

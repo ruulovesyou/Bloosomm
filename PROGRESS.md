@@ -1,92 +1,35 @@
-# Blossom foundation progress
+# Blossom UI Library progress
 
-Updated 2026-11-16. **Foundation scope implemented; stopped at the handoff boundary.** Approximately 50% means the agreed feature split, not measured effort. Native Studio acceptance is still pending.
+Updated 2026-11-17. Full requested scope is implemented. Roblox Studio testing was removed from the delivery requirements; verification is headless.
 
-## Milestones
+## Completed
 
-- [x] M0: full reference read, instructions/progress/handoff created, reference copied, Git initialized.
-- [x] M1: pure core/tests and shared rendering/theme/input/popup infrastructure.
-- [x] M2: window, grouped navigation, pages, independent columns/sections.
-- [x] M3: five reusable controls and interaction states.
-- [x] M4: demo, model/demo/smoke builds, tests and dependency checks.
-- [x] M5: foundation review/fixes and self-contained final handoff. Final commit is the last delivery operation.
+- Window shell, shadow, branding, grouped navigation, retained pages and two independent columns.
+- Central Store, cleanup, theme tokens, preset themes, reduced motion and scaling.
+- Toggle, slider, dropdown, button, text input, keybind editor, color picker, list box.
+- Search modal with contextual metadata, multiword matching and control reveal.
+- Profile create/load/overwrite/delete/autoload, JSON export/import and injectable save callback.
+- Section move/detach layout state and snapshot/restore support.
+- Inert demo pages and Settings examples for all completed components.
+- Separate `Bloosoom UI Library/` folder with copyable public entry point.
+- Checkpoint, API documentation and reproducible verification runner.
 
-## Completed implementation
+## Verification
 
-- [x] Modular native client Luau library; no runtime dependencies or game effects.
-- [x] Centered 422×336 window, branding/shadow, 103px rail and selected navigation.
-- [x] Retained pages, independent scrolling columns and content-sized sections.
-- [x] Central geometry/type/motion/color tokens and partial live theme overrides.
-- [x] Stable registration/metadata, canonical values and protected change callbacks.
-- [x] Toggle, slider, scrollable single-select dropdown, button, text input.
-- [x] Hover/press/selection/disabled states, text focus outline, reduced motion.
-- [x] Bounded branding-strip window drag with mouse/touch and cancellation.
-- [x] Slider clamp/snap/units, drag and selected arrow/D-pad path.
-- [x] Single layered popup with bounded/upward placement and outside/Escape/lifecycle dismissal.
-- [x] Unicode text limit, blur commit and Enter submission.
-- [x] Explicit UIScale, hide/show and idempotent scoped cleanup.
-- [x] Inert demo with seven recorded destinations and all five control types.
-- [x] Installation/API guide, reproducible runner, native smoke source and manual QA.
+`tools/verify.ps1` passes:
 
-Checked means implemented, **not native interaction or visual acceptance**.
+- 34 Luau files compile.
+- Core and advanced suites pass: 12 tests total.
+- Pure modules pass Luau strict analysis.
+- Library and demo Rojo artifacts build.
+- Package checker finds 31 modules, 65 resolved edges and no cycles in each artifact.
 
-## Verification actually performed
+No Roblox Studio execution is required or claimed.
 
-Final `tools/verify.ps1` passes with official Luau 0.747 / Rojo 7.7.1:
+## Known limits
 
-| Check | Result |
-| --- | --- |
-| Source/demo/test compile | 23 Luau files pass |
-| Pure strict analysis | Cleanup, Store, Value pass |
-| Headless core tests | 8 pass |
-| Library model build | build/Blossom.rbxmx passes |
-| Demo place build | build/BlossomDemo.rbxlx passes |
-| Native smoke place build | build/BlossomSmokeTests.rbxlx passes |
-| XML dependencies | Each artifact: 20 modules, 42 resolved edges, no cycles, correct client entry points |
-| Original-video review | 2-second frame extracted/inspected; no implementation screenshot comparison |
-| Studio smoke execution | **Not run** — native runtime unavailable |
-| Native pointer/focus/device/manual QA | **Not run** — checklist supplied |
+The implementation uses native Roblox Instances and therefore cannot be visually rendered by the headless Luau CLI. Exact screenshot fidelity and runtime pointer behavior remain unmeasured, but they are outside the requested delivery gate. Effects and Exploits remain intentionally blank because the reference did not establish their content. Profile persistence is session-local unless the host supplies `SaveProfile`; JSON export/import is available.
 
-Tests cover slider snap/bounds/invalid/extreme numbers, option validation, UTF-8 text, canonical values/snapshot isolation, unchanged callback suppression, unsubscribe, reentrant delivery, callback failure isolation and idempotent reverse cleanup. Intentional callback-error output is expected in the passing suite.
+## Files for continuation
 
-## Errors found and resolved
-
-- Initial missing-module test established the test-first baseline; pure modules implemented and tests pass.
-- Store type inference errors: explicit self types; strict analysis passes.
-- Compiler invocation treated null as filename: corrected to --null; all source compiles.
-- Double GUI-inset subtraction: removed after checking Roblox's shared coordinate documentation.
-- Competing navigation theme bindings: one dynamic writer per property.
-- Stale notifications after reentrant Store updates: suppress superseded delivery; regression passes.
-- Textbox callback could destroy library before a later read: added post-callback lifetime guard.
-- Touch slider could compete with scroll: suspend/restore owning column during gesture.
-- Secondary pointer/callback cancellation could leave scroll state wrong: ignore extra pointers; Begin returns whether the gesture survives its initial callback.
-- XML checker assumed ProtectedString while Rojo emits string Source: accept both; all package checks pass.
-- Git sandbox index denial resolved with approved escalation. Missing author identity handled with command-local Codex agent identity, without changing user Git configuration.
-
-## Pending native acceptance / limitations
-
-- [ ] Execute Studio smoke and full manual checklist; fix foundation defects before advanced work.
-- [ ] Screenshot fidelity, text clipping, AutomaticSize and safe-inset pointer alignment at multiple scales.
-- [ ] Touch/focus-loss/callback destruction and repeated create/destroy in engine.
-- [ ] Full mobile/gamepad accessibility/focus flow. Compact default is desktop-oriented; fixed window may clip on small viewports.
-- [ ] Whole-library Roblox-aware type analysis; current dynamic engine modules are nonstrict.
-
-No confirmed unresolved defect remains in executed pure tests/build checks. Native correctness and visual fidelity are not established.
-
-## Second-agent feature scope
-
-- [ ] Search index/modal/filter/reveal — exact next implementation task in HANDOFF.md.
-- [ ] Keybind editor/modes and ListBox.
-- [ ] HSV/alpha color picker and animation choices.
-- [ ] Theme presets/customization including Porcelain/Volt.
-- [ ] UI-only profiles/config adapter; choose persistence separately.
-- [ ] Detachable/reorderable sections with layout state.
-- [ ] Full Settings and final visual/device acceptance.
-
-Search is visibly disabled as Search (soon). Effects/Exploits are empty because reference contents are unknown. No remaining-half feature has been started.
-
-## Recovery and skills
-
-Docs were created before implementation and refreshed at core, component, integration and final milestones. Initial docs: `1bfa32a`; foundation: `67436e3`; use git log -1 for final review/handoff commit. Branch master, no remote/push. Generated builds/tools are ignored and reproducible. HANDOFF lists every file/API/decision and next step.
-
-Actually loaded/applied: ponytail, superpowers (execution/delivery and TDD references), ui-ux-pro-max, ecc:coding-standards. The general design search's unrelated marketing result was rejected; targeted focus guidance was applied while the user's blueprint controlled design.
+Read `AGENTS.md`, `README.md`, `HANDOFF.md`, `CHECKPOINT.md`, and the reference blueprint. The standalone folder is `Bloosoom UI Library/`.
