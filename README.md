@@ -73,6 +73,10 @@ Callbacks are synchronous, protected against errors, and should be short/non-yie
 
 Theme keys: Background, Sidebar, Tab, Section, Input, Outline, Inline, Text, InactiveText, Accent, Element, HoveredElement, Gradient, Shadow. Geometry/motion live in `Themes/Tokens.luau`. Gradient is reserved, not rendered. Icons are native geometric approximations, not original assets.
 
+Advanced APIs: `section:AddKeybind({Id, Label, Default = {Key = "None", Mode = "toggle"}, Global?, OnChanged?, OnTriggered?})`, `section:AddColorPicker({Id, Label, Default = {R, G, B, Alpha, Animation}, OnChanged?, OnPreview?})`, and `section:AddListBox({Id, Label, Options, Default?, OnChanged?})`. Keybind popups support capture, On Toggle, On Hold and Reset. Color animations are `None`, `Rainbow`, `Fade` and `Fade Alpha`. `section:MoveTo(column, order?)` docks a section; `section:Detach(x, y)` turns it into a floating card. `ui:RevealControl(id)` selects the page, scrolls to the control and highlights it.
+
+Profiles are UI-only snapshots. `CreateProfile`, `OverwriteProfile`, `DeleteProfile`, `ListProfiles`, `LoadProfile`, `SetAutoloadProfile`, `ExportProfiles` and `ImportProfiles` are available. Pass `SaveProfile = function(document) ... end` to `Blossom.new` for a host-owned persistence adapter. The library never writes DataStores or files itself. `SetThemePreset` supports Blossom, Afterglow, Frostbite, Volt, Obsidian, Sakura Drift, Neon Mirage, Copper Dust, Abyss and Porcelain.
+
 ## Verification and limitations
 
 Run `powershell -File tools/verify.ps1` with official Luau CLI 0.747 and Rojo 7.7.1 in `.tools/luau` and `.tools/rojo`, or pass `-LuauDirectory` and `-Rojo` paths. Python 3 is used only to inspect generated XML module graphs. Obtain tools from [Luau releases](https://github.com/luau-lang/luau/releases) and [Rojo releases](https://github.com/rojo-rbx/rojo/releases). No dependency downloader runs automatically.
