@@ -7,8 +7,9 @@ Page.__index = Page
 
 function Page.new(context, options)
     local r = context.Renderer
-    local frame = r:Create('Frame', {
+    local frame = r:Create('CanvasGroup', {
         Name = 'Page_' .. options.Id, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Visible = false,
+        GroupTransparency = 1,
     }, context.Content)
     local columns = {}
     for index = 1, 2 do

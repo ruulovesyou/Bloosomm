@@ -2,7 +2,7 @@
   <Item class="ModuleScript" referent="0">
     <Properties>
       <string name="Name">Blossom</string>
-      <string name="Source"><![CDATA[--!nonstrict
+      <string name="Source">--!nonstrict
 local Players = game:GetService('Players')
 local UserInputService = game:GetService('UserInputService')
 local GuiService = game:GetService('GuiService')
@@ -39,6 +39,11 @@ local function option(options, lower, upper, fallback)
     return fallback
 end
 
+local function safeCallback(callback, ...)
+    local ok, problem = pcall(callback, ...)
+    if not ok then warn('[Blossom callback] ' .. tostring(problem)) end
+end
+
 local function elementOptions(options, kind)
     local name = option(options, 'name', 'Name', kind)
     local result = table.clone(options)
@@ -56,7 +61,19 @@ local function pageAdapter(page)
         if options.flag == nil and options.Flag == nil then result.Id = page.Id .. '_' .. result.Id end
         return result
     end
-    function adapter:CreateSection(options) return page:AddSection({Id = slug(option(options, 'name', 'Name', 'section')), Title = option(options, 'name', 'Name', 'Section'), Column = option(options, 'column', 'Column', 1)}) end
+    function adapter:CreateSection(options)
+        options = options or {}
+        local section = page:AddSection({
+            Id = slug(option(options, 'name', 'Name', 'section')),
+            Title = option(options, 'name', 'Name', 'Section'),
+            Column = option(options, 'column', 'Column', 1),
+            Description = option(options, 'description', 'Description', nil),
+            Collapsible = option(options, 'collapsible', 'Collapsible', false),
+            Collapsed = option(options, 'collapsed', 'Collapsed', false),
+        })
+        self._section = section
+        return section
+    end
     function adapter:CreateToggle(options) return self._section:AddToggle(scoped(options, 'Toggle')) end
     function adapter:CreateSlider(options)
         local result = scoped(options, 'Slider')
@@ -69,16 +86,28 @@ local function pageAdapter(page)
     function adapter:CreateDropdown(options)
         local result = scoped(options, 'Dropdown')
         result.Options = option(options, 'options', 'Options', {})
-        result.Default = option(options, 'value', 'Value', result.Options[1])
-        assert(not option(options, 'multiSelect', 'MultiSelect', false), 'Blossom dropdowns currently support single selection only')
+        result.Multi = option(options, 'multiSelect', 'MultiSelect', false) or option(options, 'multi', 'Multi', false)
+        result.Default = option(options, 'value', 'Value', if result.Multi then {} else result.Options[1])
         return self._section:AddDropdown(result)
     end
-    function adapter:CreateButton(options) return self._section:AddButton({Id = slug(option(options, 'flag', 'Flag', option(options, 'name', 'Name', 'button'))), Label = option(options, 'name', 'Name', 'Button'), OnClick = option(options, 'callback', 'Callback', nil)}) end
+    function adapter:CreateButton(options)
+        local result = scoped(options, 'Button')
+        return self._section:AddButton({
+            Id = result.Id,
+            Label = option(options, 'name', 'Name', 'Button'),
+            OnClick = option(options, 'callback', 'Callback', nil),
+        })
+    end
     function adapter:CreateInput(options) return self._section:AddTextInput(scoped(options, 'Input')) end
     function adapter:CreateKeybind(options)
         local result = scoped(options, 'Keybind')
-        local value = option(options, 'value', 'Value', Enum.KeyCode.Unknown)
-        result.Default = {Key = typeof(value) == 'EnumItem' and value.Name or tostring(value), Mode = option(options, 'hold', 'Hold', false) and 'hold' or 'toggle'}
+        local value = option(options, 'value', 'Value', 'None')
+        local key = if typeof(value) == 'EnumItem' then value.Name else tostring(value)
+        if key == 'Unknown' then key = 'None' end
+        result.Default = {
+            Key = key,
+            Mode = option(options, 'hold', 'Hold', false) and 'hold' or 'toggle',
+        }
         result.OnTriggered = option(options, 'callback', 'Callback', nil)
         return self._section:AddKeybind(result)
     end
@@ -86,6 +115,16 @@ local function pageAdapter(page)
         local color = option(options, 'color', 'Color', Color3.fromRGB(116, 169, 227))
         local result = scoped(options, 'ColorPicker')
         result.Default = {R = color.R, G = color.G, B = color.B, Alpha = 1, Animation = 'None'}
+        local callback = result.OnChanged
+        if callback then
+            result.OnChanged = function(value)
+                if type(value) == 'table' and value.R and value.G and value.B then
+                    safeCallback(callback, Color3.new(value.R, value.G, value.B))
+                else
+                    safeCallback(callback, value)
+                end
+            end
+        end
         return self._section:AddColorPicker(result)
     end
     function adapter:CreateList(options)
@@ -102,12 +141,16 @@ function Blossom.new(options)
     Value.id(options.Title)
     options.Scale = options.Scale or 1
     Value.finite(options.Scale)
-    assert(options.Scale >= 0.5 and options.Scale <= 3, 'Scale must be between 0.5 and 3')
+    assert(options.Scale &gt;= 0.5 and options.Scale &lt;= 3, 'Scale must be between 0.5 and 3')
     local size = options.Size or UDim2.fromOffset(Tokens.Width, Tokens.Height)
     assert(typeof(size) == 'UDim2' and size.X.Scale == 0 and size.Y.Scale == 0, 'Size must use pixel offsets')
     options.Width, options.Height = Value.finite(size.X.Offset), Value.finite(size.Y.Offset)
-    assert(options.Width >= 360 and options.Height >= 260, 'Minimum window size is 360 x 260')
-    assert(options.Theme == nil or options.Theme == 'Blossom' or type(options.Theme) == 'table', 'Only Blossom preset or token overrides are available')
+    assert(options.Width &gt;= 360 and options.Height &gt;= 260, 'Minimum window size is 360 x 260')
+    local theme = options.Theme
+    if type(theme) == 'string' and theme ~= 'Blossom' and table.find(Presets.Names, theme) then
+        options.Theme = Presets.Get(theme)
+    end
+    assert(options.Theme == nil or options.Theme == 'Blossom' or type(options.Theme) == 'table', 'Only Blossom preset, known presets, or token overrides are available')
     assert(options.ReducedMotion == nil or type(options.ReducedMotion) == 'boolean', 'ReducedMotion must be boolean')
     if options.DisplayOrder ~= nil then Value.finite(options.DisplayOrder) end
     if options.Parent == nil then
@@ -143,7 +186,7 @@ function Blossom:CreateWindow(options)
         Title = option(options, 'name', 'Name', 'Blossom'),
         Size = options.Size,
         Scale = options.Scale or 1,
-        Theme = theme == 'default' and 'Blossom' or theme,
+        Theme = if theme == 'default' then 'Blossom' else theme,
         ReducedMotion = options.ReducedMotion,
         Parent = options.Parent,
         SaveProfile = options.SaveProfile,
@@ -155,7 +198,8 @@ function Blossom:CreateWindow(options)
         local page = self:AddPage({Id = option(tabOptions, 'flag', 'Flag', slug(option(tabOptions, 'name', 'Name', 'tab'))), Title = option(tabOptions, 'name', 'Name', 'Tab'), Group = option(tabOptions, 'group', 'Group', '')})
         local adapter = pageAdapter(page)
         function adapter:CreateSection(sectionOptions)
-            local section = page:AddSection({Id = slug(option(sectionOptions or {}, 'name', 'Name', 'section')), Title = option(sectionOptions or {}, 'name', 'Name', 'Section'), Column = option(sectionOptions or {}, 'column', 'Column', 1)})
+            sectionOptions = sectionOptions or {}
+            local section = page:AddSection({Id = slug(option(sectionOptions, 'name', 'Name', 'section')), Title = option(sectionOptions, 'name', 'Name', 'Section'), Column = option(sectionOptions, 'column', 'Column', 1), Description = option(sectionOptions, 'description', 'Description', nil), Collapsible = option(sectionOptions, 'collapsible', 'Collapsible', false), Collapsed = option(sectionOptions, 'collapsed', 'Collapsed', false)})
             self._section = section
             return section
         end
@@ -167,7 +211,10 @@ function Blossom:CreateWindow(options)
         return {Name = option(options or {}, 'name', 'Name', 'Section')}
     end
     function window:ChangeTheme(value) if value == 'default' then value = 'Blossom' end; self:SetThemePreset(value) end
-    function window:Save(name) self:CreateProfile(name or 'Default') end
+    function window:Save(name)
+        name = name or 'Default'
+        if table.find(self:ListProfiles(), name) then self:OverwriteProfile(name) else self:CreateProfile(name) end
+    end
     function window:Load(name) self:LoadProfile(name or 'Default') end
     function window:ListConfigs() return self:ListProfiles() end
     function window:DeleteConfig(name) self:DeleteProfile(name) end
@@ -205,11 +252,28 @@ function Blossom:SelectPage(id)
     self:_ReleaseFocus()
     context.Input:Cancel()
     context.Overlay:Close()
+    local previous = context.CurrentPage and context.Pages[context.CurrentPage]
     context.CurrentPage = id
-    for pageId, page in pairs(context.Pages) do
-        page.Frame.Visible = pageId == id
-        page.Floating.Visible = pageId == id
+    local nextPage = context.Pages[id]
+    local function show(page, visible, transparency)
+        if not page then return end
+        page.Frame.Visible = visible
+        page.Floating.Visible = visible
+        context.Renderer:Tween(page.Frame, {GroupTransparency = transparency}, visible and Tokens.PageFadeIn or Tokens.PageFadeOut)
     end
+    if previous and previous ~= nextPage then
+        show(previous, true, 1)
+        task.delay(context.Renderer.ReducedMotion and 0 or Tokens.PageFadeOut, function()
+            if not context.Destroyed and context.CurrentPage == id then show(previous, false, 1) end
+        end)
+    end
+    for pageId, page in pairs(context.Pages) do
+        if page ~= previous and page ~= nextPage then show(page, false, 1) end
+    end
+    show(nextPage, true, 1)
+    task.delay(context.Renderer.ReducedMotion and 0 or Tokens.PageFadeIn, function()
+        if not context.Destroyed and context.CurrentPage == id then show(nextPage, true, 0) end
+    end)
     context.Sidebar:Refresh()
 end
 
@@ -220,7 +284,7 @@ function Blossom:GetValues() return self._context.Store:Snapshot() end
 function Blossom:GetControls()
     local controls = {}
     for _, control in pairs(self._context.Registry) do table.insert(controls, control.Metadata) end
-    table.sort(controls, function(a, b) return a.Id < b.Id end)
+    table.sort(controls, function(a, b) return a.Id &lt; b.Id end)
     return controls
 end
 
@@ -289,7 +353,7 @@ function Blossom:SetScale(scale)
     local context = self._context
     assert(not context.Destroyed, 'Library destroyed')
     Value.finite(scale)
-    assert(scale >= 0.5 and scale <= 3, 'Scale must be between 0.5 and 3')
+    assert(scale &gt;= 0.5 and scale &lt;= 3, 'Scale must be between 0.5 and 3')
     context.Input:Cancel()
     context.Overlay:Close()
     context.Scale.Scale = scale
@@ -321,8 +385,7 @@ function Blossom:Destroy()
     table.clear(context.Pages)
 end
 
-return Blossom
-]]></string>
+return Blossom</string>
     </Properties>
     <Item class="Folder" referent="1">
       <Properties>
@@ -590,9 +653,11 @@ local Tokens = require(script.Parent.Parent.Themes.Tokens)
 local Dropdown = {}
 
 function Dropdown.new(context, section, options)
-    local normalize = Value.dropdown(options.Options)
+    local multi = options.Multi == true
+    local normalize = if multi then Value.multiselect(options.Options) else Value.dropdown(options.Options)
     local choices = table.clone(options.Options)
-    local self = Control.new(context, section, options, 'Dropdown', if options.Default == nil then choices[1] else options.Default, normalize, 42)
+    local default = if options.Default ~= nil then options.Default else if multi then {} else choices[1]
+    local self = Control.new(context, section, options, 'Dropdown', default, normalize, 42)
     local r = context.Renderer
     self.Label.Size = UDim2.new(1, 0, 0, 18)
     local field = r:Create('TextButton', {Name = 'Dropdown', Text = '', Position = UDim2.fromOffset(0, 20), Size = UDim2.new(1, 0, 0, Tokens.FieldHeight)}, self.Frame)
@@ -609,7 +674,8 @@ function Dropdown.new(context, section, options)
     self:Target(field)
     local refresh = r:Feedback(field, function() return self.Disabled end)
     local function paint()
-        selected.Text = self:GetValue()
+        local current = self:GetValue()
+        selected.Text = if multi then table.concat(current, ', ') else current
         selected.TextColor3 = context.Theme:Get(self.Disabled and 'InactiveText' or 'Text')
         refresh()
     end
@@ -623,11 +689,20 @@ function Dropdown.new(context, section, options)
                 Name = 'Option' .. index, Text = '', Size = UDim2.new(1, -2, 0, Tokens.PopupRow), LayoutOrder = index, ZIndex = 31,
             }, popup)
             pr:Corner(item)
-            pr:Label(item, choice, {Position = UDim2.fromOffset(6, 0), Size = UDim2.new(1, -12, 1, 0), ZIndex = 32}, choice == self:GetValue() and 'Accent' or 'Text')
-            pr:Feedback(item, nil, function() return choice == self:GetValue() and 'Tab' or 'Background' end)
+            local selectedChoice = if multi then table.find(self:GetValue(), choice) ~= nil else choice == self:GetValue()
+            pr:Label(item, (selectedChoice and '▌ ' or '  ') .. choice, {Position = UDim2.fromOffset(6, 0), Size = UDim2.new(1, -12, 1, 0), ZIndex = 32}, selectedChoice and 'Accent' or 'Text')
+            pr:Feedback(item, nil, function() return selectedChoice and 'Tab' or 'Background' end)
             pr:Connect(item.Activated, function()
-                context.Overlay:Close()
-                self:SetValue(choice)
+                if multi then
+                    local nextValue = table.clone(self:GetValue())
+                    local index = table.find(nextValue, choice)
+                    if index then table.remove(nextValue, index) else table.insert(nextValue, choice) end
+                    self:SetValue(nextValue)
+                    context.Overlay:Close()
+                else
+                    context.Overlay:Close()
+                    self:SetValue(choice)
+                end
             end)
         end
     end)
@@ -772,8 +847,9 @@ Page.__index = Page
 
 function Page.new(context, options)
     local r = context.Renderer
-    local frame = r:Create('Frame', {
+    local frame = r:Create('CanvasGroup', {
         Name = 'Page_' .. options.Id, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Visible = false,
+        GroupTransparency = 1,
     }, context.Content)
     local columns = {}
     for index = 1, 2 do
@@ -812,6 +888,70 @@ return Page
         </Properties>
       </Item>
       <Item class="ModuleScript" referent="9">
+        <Properties>
+          <string name="Name">RangeSlider</string>
+          <string name="Source"><![CDATA[--!nonstrict
+local Control = require(script.Parent.Control)
+local Value = require(script.Parent.Parent.Core.Value)
+local Tokens = require(script.Parent.Parent.Themes.Tokens)
+local RangeSlider = {}
+
+function RangeSlider.new(context, section, options)
+    local minimum = options.Minimum or 0
+    local maximum = options.Maximum or 100
+    local step = options.Step or 1
+    local normalize = function(value)
+        assert(type(value) == 'table' and #value == 2, 'Range slider requires two values')
+        local snap = Value.slider(minimum, maximum, step)
+        local left, right = snap(value[1]), snap(value[2])
+        if left > right then left, right = right, left end
+        return {left, right}
+    end
+    local self = Control.new(context, section, options, 'RangeSlider', options.Default or {minimum, maximum}, normalize, Tokens.SliderHeight)
+    local r = context.Renderer
+    self.Label.Size = UDim2.new(1, -74, 0, 18)
+    local values = r:Label(self.Frame, '', {Position = UDim2.new(1, -72, 0, 0), Size = UDim2.fromOffset(72, 18), TextXAlignment = Enum.TextXAlignment.Right, TextSize = Tokens.SmallText}, 'InactiveText')
+    local hit = r:Create('TextButton', {Name = 'RangeSlider', Text = '', BackgroundTransparency = 1, Position = UDim2.fromOffset(0, 17), Size = UDim2.new(1, 0, 0, 13)}, self.Frame)
+    local track = r:Create('Frame', {Position = UDim2.new(0, 3, 0.5, -2), Size = UDim2.new(1, -6, 0, 4)}, hit, {BackgroundColor3 = 'Element'})
+    r:Corner(track, 4)
+    local fill = r:Create('Frame', {Name = 'Fill'}, track, {BackgroundColor3 = 'Accent'})
+    r:Corner(fill, 4)
+    local thumbs = {}
+    for index = 1, 2 do
+        local thumb = r:Create('Frame', {Name = 'Thumb' .. index, AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(6, 6)}, track, {BackgroundColor3 = 'Accent'})
+        r:Corner(thumb, 6)
+        thumbs[index] = thumb
+    end
+    self:Target(hit)
+    local function paint()
+        local value = self:GetValue()
+        local a = (value[1] - minimum) / (maximum - minimum)
+        local b = (value[2] - minimum) / (maximum - minimum)
+        fill.Position = UDim2.fromScale(a, 0)
+        fill.Size = UDim2.fromScale(b - a, 1)
+        thumbs[1].Position = UDim2.fromScale(a, 0.5)
+        thumbs[2].Position = UDim2.fromScale(b, 0.5)
+        values.Text = tostring(value[1]) .. (options.Unit or '') .. '  ' .. tostring(value[2]) .. (options.Unit or '')
+    end
+    r:Connect(hit.InputBegan, function(input)
+        if self.Disabled then return end
+        context.Input:Begin(input, function(point)
+            local alpha = math.clamp((point.X - track.AbsolutePosition.X) / math.max(1, track.AbsoluteSize.X), 0, 1)
+            local current = self:GetValue()
+            local target = minimum + alpha * (maximum - minimum)
+            local index = math.abs(target - current[1]) <= math.abs(target - current[2]) and 1 or 2
+            current[index] = target
+            self:SetValue(current)
+        end)
+    end)
+    return self:Mount(paint, options.OnChanged)
+end
+
+return RangeSlider
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="10">
         <Properties>
           <string name="Name">SearchDialog</string>
           <string name="Source"><![CDATA[--!nonstrict
@@ -861,13 +1001,14 @@ return SearchDialog
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="10">
+      <Item class="ModuleScript" referent="11">
         <Properties>
           <string name="Name">Section</string>
           <string name="Source"><![CDATA[--!nonstrict
 local Tokens = require(script.Parent.Parent.Themes.Tokens)
 local Toggle = require(script.Parent.Toggle)
 local Slider = require(script.Parent.Slider)
+local RangeSlider = require(script.Parent.RangeSlider)
 local Dropdown = require(script.Parent.Dropdown)
 local Button = require(script.Parent.Button)
 local TextInput = require(script.Parent.TextInput)
@@ -884,18 +1025,62 @@ function Section.new(context, page, options, parent, order)
         LayoutOrder = order,
     }, parent, {BackgroundColor3 = 'Tab'})
     r:Corner(frame, Tokens.CardRadius)
+    local gradient = r:Create('UIGradient', {Name = 'SurfaceGradient', Rotation = 90}, frame)
+    context.Theme:Subscribe(context.Cleanup, function()
+        gradient.Color = ColorSequence.new(context.Theme:Get('Tab'), context.Theme:Get('Section'))
+    end)
     r:List(frame, 0)
     local header = r:Create('TextButton', {Name = 'Header', Text = '', Size = UDim2.new(1, 0, 0, Tokens.SectionHeader), BackgroundTransparency = 1, LayoutOrder = 0}, frame)
-    r:Create('Frame', {Name = 'Icon', Position = UDim2.fromOffset(8, 10), Size = UDim2.fromOffset(4, 4)}, header, {BackgroundColor3 = 'Accent'})
-    r:Label(header, options.Title, {Position = UDim2.fromOffset(17, 0), Size = UDim2.new(1, -24, 1, 0), Font = Enum.Font.GothamMedium})
+    local icon = r:Create('Frame', {Name = 'Icon', Position = UDim2.fromOffset(8, 8), Size = UDim2.fromOffset(5, 5)}, header, {BackgroundColor3 = 'Accent'})
+    r:Corner(icon, 5)
+    r:Label(header, options.Title, {Position = UDim2.fromOffset(19, 0), Size = UDim2.new(1, -26, 1, 0), Font = Enum.Font.GothamMedium})
+    local collapsible = options.Collapsible == true
+    local chevron
+    if collapsible then
+        chevron = r:Label(header, '⌄', {Name = 'Chevron', Position = UDim2.new(1, -22, 0, 0), Size = UDim2.fromOffset(16, Tokens.SectionHeader), TextXAlignment = Enum.TextXAlignment.Center, TextSize = Tokens.SmallText}, 'InactiveText')
+    end
     r:Create('Frame', {Name = 'Rule', Position = UDim2.new(0, 7, 1, -1), Size = UDim2.new(1, -14, 0, 1)}, header, {BackgroundColor3 = 'Inline'})
-    local body = r:Create('Frame', {Name = 'Body', Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, LayoutOrder = 1}, frame)
-    r:Padding(body, 7)
+    if options.Description and options.Description ~= '' then
+        r:Label(frame, options.Description, {Name = 'Description', Position = UDim2.fromOffset(19, Tokens.SectionHeader), Size = UDim2.new(1, -26, 0, 14), TextSize = Tokens.SmallText, LayoutOrder = 1}, 'InactiveText')
+    end
+    local body = r:Create('Frame', {Name = 'Body', Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, LayoutOrder = 2}, frame)
+    r:Padding(body, 6)
     r:List(body, Tokens.ControlGap)
-    local self = setmetatable({Id = options.Id, Title = options.Title, Page = page, Frame = frame, Body = body, Column = options.Column or 1, Order = order, context = context, count = 0}, Section)
+    local self = setmetatable({Id = options.Id, Title = options.Title, Page = page, Frame = frame, Body = body, Column = options.Column or 1, Order = order, context = context, count = 0, Collapsible = collapsible, Collapsed = false, Chevron = chevron, Transition = 0}, Section)
+    function self:SetCollapsed(collapsed)
+        if not self.Collapsible or self.Collapsed == collapsed then return end
+        self.Collapsed = collapsed
+        self.Transition += 1
+        local transition = self.Transition
+        local expandedHeight = self.Body.AbsoluteSize.Y
+        self.Body.AutomaticSize = Enum.AutomaticSize.None
+        if collapsed then
+            self.context.Renderer:Tween(self.Body, {Size = UDim2.new(1, 0, 0, 0)}, Tokens.SectionCollapse)
+        else
+            self.Body.Size = UDim2.new(1, 0, 0, 0)
+            self.Body.AutomaticSize = Enum.AutomaticSize.Y
+            task.defer(function()
+                if self.context.Destroyed or transition ~= self.Transition then return end
+                expandedHeight = self.Body.AbsoluteSize.Y
+                self.Body.AutomaticSize = Enum.AutomaticSize.None
+                self.context.Renderer:Tween(self.Body, {Size = UDim2.new(1, 0, 0, expandedHeight)}, Tokens.SectionCollapse)
+            end)
+        end
+        if self.Chevron then self.context.Renderer:Tween(self.Chevron, {Rotation = collapsed and -90 or 0}, Tokens.SectionCollapse) end
+        if collapsed then self.context.Input:Cancel(); self.context.Overlay:Close() end
+        task.delay(Tokens.SectionCollapse, function()
+            if not self.context.Destroyed and transition == self.Transition and not self.Collapsed then self.Body.AutomaticSize = Enum.AutomaticSize.Y end
+        end)
+    end
+    function self:IsCollapsed() return self.Collapsed end
+    if collapsible and options.Collapsed == true then task.defer(function() self:SetCollapsed(true) end) end
     r:Connect(header.InputBegan, function(input) context.Layout:Begin(self, input) end)
     r:Connect(header.Activated, function(input)
-        if input and input.UserInputType == Enum.UserInputType.Gamepad1 then self:MoveTo(self.Column == 1 and 2 or 1) end
+        if input and input.UserInputType == Enum.UserInputType.Gamepad1 then
+            self:MoveTo(self.Column == 1 and 2 or 1)
+        elseif self.Collapsible and not context.Layout.drag then
+            self:SetCollapsed(not self.Collapsed)
+        end
     end)
     r:Connect(header.MouseButton2Click, function() self:MoveTo(self.Column == 1 and 2 or 1) end)
     return self
@@ -903,6 +1088,7 @@ end
 
 function Section:AddToggle(options) return Toggle.new(self.context, self, options) end
 function Section:AddSlider(options) return Slider.new(self.context, self, options) end
+function Section:AddRangeSlider(options) return RangeSlider.new(self.context, self, options) end
 function Section:AddDropdown(options) return Dropdown.new(self.context, self, options) end
 function Section:AddButton(options) return Button.new(self.context, self, options) end
 function Section:AddTextInput(options) return TextInput.new(self.context, self, options) end
@@ -916,7 +1102,7 @@ return Section
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="11">
+      <Item class="ModuleScript" referent="12">
         <Properties>
           <string name="Name">Sidebar</string>
           <string name="Source"><![CDATA[--!nonstrict
@@ -971,12 +1157,15 @@ function Sidebar:AddPage(page, groupName)
         Name = 'Page_' .. page.Id, Text = '', Size = UDim2.new(1, 0, 0, Tokens.NavHeight), LayoutOrder = #self.items + 1,
     }, group)
     r:Corner(button, 4)
-    local marker = r:Create('Frame', {Name = 'Marker', Position = UDim2.fromOffset(8, 10), Size = UDim2.fromOffset(4, 4)}, button)
+    local selection = r:Create('Frame', {Name = 'Selection', Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ZIndex = button.ZIndex}, button, {BackgroundColor3 = 'Tab'})
+    r:Corner(selection, 4)
+    local marker = r:Create('Frame', {Name = 'Marker', Position = UDim2.fromOffset(8, 8), Size = UDim2.fromOffset(5, 5)}, button)
     r:Corner(marker, 4)
     local label = r:Create('TextLabel', {Name = 'Label', Text = page.Title, BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left, Position = UDim2.fromOffset(20, 0), Size = UDim2.new(1, -23, 1, 0)}, button)
-    local refresh = r:Feedback(button, nil, function() return self.context.CurrentPage == page.Id and 'Tab' or 'Sidebar' end)
+    local refresh = r:Feedback(button, nil, function() return 'Sidebar' end)
     local function paint()
         local active = self.context.CurrentPage == page.Id
+        r:Tween(selection, {BackgroundTransparency = active and 0 or 1}, Tokens.SidebarMove)
         marker.BackgroundColor3 = self.context.Theme:Get(active and 'Accent' or 'InactiveText')
         label.TextColor3 = self.context.Theme:Get(active and 'Text' or 'InactiveText')
         refresh()
@@ -994,7 +1183,7 @@ return Sidebar
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="12">
+      <Item class="ModuleScript" referent="13">
         <Properties>
           <string name="Name">Slider</string>
           <string name="Source"><![CDATA[--!nonstrict
@@ -1061,7 +1250,7 @@ return Slider
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="13">
+      <Item class="ModuleScript" referent="14">
         <Properties>
           <string name="Name">TextInput</string>
           <string name="Source"><![CDATA[--!nonstrict
@@ -1114,7 +1303,7 @@ return TextInput
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="14">
+      <Item class="ModuleScript" referent="15">
         <Properties>
           <string name="Name">Toggle</string>
           <string name="Source"><![CDATA[--!nonstrict
@@ -1127,11 +1316,21 @@ function Toggle.new(context, section, options)
     local default = if options.Default == nil then false else options.Default
     local self = Control.new(context, section, options, 'Toggle', default, Value.boolean, Tokens.RowHeight)
     local r = context.Renderer
-    self.Label.Size = UDim2.new(1, -30, 1, 0)
+    local accessoryWidth = (options.Keybind and 27 or 0) + (options.Color and 16 or 0)
+    self.Label.Size = UDim2.new(1, -27 - accessoryWidth, 1, 0)
+    if options.Keybind then
+        local chip = r:Create('TextLabel', {Name = 'KeybindChip', Text = tostring(options.Keybind), Position = UDim2.new(1, -49 - (options.Color and 16 or 0), 0, 2), Size = UDim2.fromOffset(24, 14), TextSize = 8, TextXAlignment = Enum.TextXAlignment.Center}, self.Frame, {BackgroundColor3 = 'Input', TextColor3 = 'InactiveText'})
+        r:Corner(chip, 2)
+        r:Stroke(chip, 'Inline')
+    end
+    if options.Color then
+        local swatch = r:Create('Frame', {Name = 'ColorSwatch', Position = UDim2.new(1, -43, 0, 5), Size = UDim2.fromOffset(8, 8)}, self.Frame, {BackgroundColor3 = 'Accent'})
+        r:Corner(swatch, 2)
+    end
     local hit = r:Create('TextButton', {Name = 'Toggle', Text = '', BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1)}, self.Frame)
-    local pill = r:Create('Frame', {Name = 'Pill', AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.fromScale(1, 0.5), Size = UDim2.fromOffset(22, 12)}, hit)
+    local pill = r:Create('Frame', {Name = 'Pill', AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.fromScale(1, 0.5), Size = UDim2.fromOffset(20, 10)}, hit)
     r:Corner(pill, 12)
-    local knob = r:Create('Frame', {Name = 'Knob', AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 2, 0.5, 0), Size = UDim2.fromOffset(8, 8)}, pill)
+    local knob = r:Create('Frame', {Name = 'Knob', AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 2, 0.5, 0), Size = UDim2.fromOffset(6, 6)}, pill)
     r:Corner(knob, 8)
     self:Target(hit)
     local hovered = false
@@ -1154,7 +1353,7 @@ return Toggle
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="15">
+      <Item class="ModuleScript" referent="16">
         <Properties>
           <string name="Name">Window</string>
           <string name="Source"><![CDATA[--!nonstrict
@@ -1180,6 +1379,10 @@ function Window.new(context, options)
     context.Scale = r:Create('UIScale', {Scale = options.Scale}, root)
     r:Corner(root, Tokens.Radius)
     r:Stroke(root)
+    local gradient = r:Create('UIGradient', {Name = 'WindowGradient', Rotation = 90}, root)
+    context.Theme:Subscribe(context.Cleanup, function()
+        gradient.Color = ColorSequence.new(context.Theme:Get('Background'), context.Theme:Get('Tab'))
+    end)
     local shadow = r:Create('Frame', {
         Name = 'Shadow', Position = UDim2.fromOffset(-3, 3), Size = UDim2.new(1, 6, 1, 3),
         ZIndex = 9, BackgroundTransparency = 0.65,
@@ -1227,11 +1430,11 @@ return Window
         </Properties>
       </Item>
     </Item>
-    <Item class="Folder" referent="16">
+    <Item class="Folder" referent="17">
       <Properties>
         <string name="Name">Core</string>
       </Properties>
-      <Item class="ModuleScript" referent="17">
+      <Item class="ModuleScript" referent="18">
         <Properties>
           <string name="Name">Cleanup</string>
           <string name="Source"><![CDATA[--!strict
@@ -1265,7 +1468,7 @@ return Cleanup
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="18">
+      <Item class="ModuleScript" referent="19">
         <Properties>
           <string name="Name">ColorAnimator</string>
           <string name="Source"><![CDATA[--!nonstrict
@@ -1303,7 +1506,7 @@ return ColorAnimator
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="19">
+      <Item class="ModuleScript" referent="20">
         <Properties>
           <string name="Name">InputManager</string>
           <string name="Source"><![CDATA[--!nonstrict
@@ -1348,7 +1551,7 @@ return InputManager
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="20">
+      <Item class="ModuleScript" referent="21">
         <Properties>
           <string name="Name">KeybindManager</string>
           <string name="Source"><![CDATA[--!nonstrict
@@ -1408,7 +1611,7 @@ return KeybindManager
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="21">
+      <Item class="ModuleScript" referent="22">
         <Properties>
           <string name="Name">LayoutManager</string>
           <string name="Source"><![CDATA[--!nonstrict
@@ -1579,7 +1782,7 @@ return LayoutManager
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="22">
+      <Item class="ModuleScript" referent="23">
         <Properties>
           <string name="Name">ModalManager</string>
           <string name="Source"><![CDATA[--!nonstrict
@@ -1658,7 +1861,7 @@ return ModalManager
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="23">
+      <Item class="ModuleScript" referent="24">
         <Properties>
           <string name="Name">OverlayManager</string>
           <string name="Source"><![CDATA[--!nonstrict
@@ -1666,6 +1869,7 @@ local UserInputService = game:GetService('UserInputService')
 local GuiService = game:GetService('GuiService')
 local Cleanup = require(script.Parent.Cleanup)
 local Renderer = require(script.Parent.Renderer)
+local Tokens = require(script.Parent.Parent.Themes.Tokens)
 local OverlayManager = {}
 OverlayManager.__index = OverlayManager
 
@@ -1697,7 +1901,12 @@ function OverlayManager:Close()
     local selected = GuiService.SelectedObject
     if selected and selected:IsDescendantOf(current.frame) then GuiService.SelectedObject = nil end
     current.scope:Destroy()
-    current.frame:Destroy()
+    if current.frame.Parent then
+        self.context.Renderer:Tween(current.frame, {BackgroundTransparency = 1}, Tokens.PopupTime)
+        task.delay(Tokens.PopupTime, function()
+            if current.frame.Parent then current.frame:Destroy() end
+        end)
+    end
     if current.closed then current.closed() end
 end
 
@@ -1720,8 +1929,9 @@ function OverlayManager:Open(owner, anchor, requestedHeight, closed, settings)
     if y > maxY then y = anchor.AbsolutePosition.Y - height - edge end
     y = math.clamp(y, minY, maxY)
     local origin = self.layer.AbsolutePosition
+    local finalPosition = UDim2.fromOffset((x - origin.X) / scale, (y - origin.Y) / scale)
     local properties = {
-        Name = 'DropdownPopup', Position = UDim2.fromOffset((x - origin.X) / scale, (y - origin.Y) / scale),
+        Name = 'DropdownPopup', Position = UDim2.new(finalPosition.X.Scale, finalPosition.X.Offset, finalPosition.Y.Scale, finalPosition.Y.Offset + 4),
         Size = UDim2.fromOffset(width / scale, height / scale), ZIndex = settings.ZIndex or 30,
         Active = true, ClipsDescendants = true,
     }
@@ -1731,12 +1941,14 @@ function OverlayManager:Open(owner, anchor, requestedHeight, closed, settings)
         properties.ScrollBarThickness = 2
         properties.ScrollingDirection = Enum.ScrollingDirection.Y
     end
+    properties.BackgroundTransparency = context.Renderer.ReducedMotion and 0 or 1
     local frame = renderer:Create(settings.Freeform and 'Frame' or 'ScrollingFrame', properties, self.layer, {BackgroundColor3 = 'Background'})
     if not settings.Freeform then renderer.Theme:Bind(scope, frame, 'ScrollBarImageColor3', 'Accent') end
     renderer:Corner(frame, 4)
     renderer:Stroke(frame)
     if not settings.Freeform then renderer:Padding(frame, 3); renderer:List(frame, 1) end
     self.current = {owner = owner, anchor = anchor, frame = frame, scope = scope, closed = closed}
+    renderer:Tween(frame, {BackgroundTransparency = 0, Position = finalPosition}, Tokens.PopupTime)
     renderer:Connect(anchor:GetPropertyChangedSignal('AbsolutePosition'), function() self:Close() end)
     renderer:Connect(anchor:GetPropertyChangedSignal('AbsoluteSize'), function() self:Close() end)
     return frame, renderer
@@ -1750,7 +1962,7 @@ return OverlayManager
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="24">
+      <Item class="ModuleScript" referent="25">
         <Properties>
           <string name="Name">ProfileStore</string>
           <string name="Source"><![CDATA[--!strict
@@ -1832,7 +2044,7 @@ return ProfileStore
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="25">
+      <Item class="ModuleScript" referent="26">
         <Properties>
           <string name="Name">Records</string>
           <string name="Source"><![CDATA[--!strict
@@ -1894,7 +2106,7 @@ return Records
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="26">
+      <Item class="ModuleScript" referent="27">
         <Properties>
           <string name="Name">Renderer</string>
           <string name="Source"><![CDATA[--!nonstrict
@@ -2021,7 +2233,7 @@ return Renderer
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="27">
+      <Item class="ModuleScript" referent="28">
         <Properties>
           <string name="Name">Store</string>
           <string name="Source"><![CDATA[--!strict
@@ -2104,7 +2316,7 @@ return Store
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="28">
+      <Item class="ModuleScript" referent="29">
         <Properties>
           <string name="Name">ThemeManager</string>
           <string name="Source"><![CDATA[--!nonstrict
@@ -2148,7 +2360,7 @@ return ThemeManager
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="29">
+      <Item class="ModuleScript" referent="30">
         <Properties>
           <string name="Name">Value</string>
           <string name="Source"><![CDATA[--!strict
@@ -2204,6 +2416,30 @@ function Value.dropdown(options: {string}): (any) -> string
     end
 end
 
+function Value.multiselect(options: {string}): (any) -> {string}
+    local single = Value.dropdown(options)
+    local members = {}
+    for _, option in ipairs(options) do members[option] = true end
+    return function(value: any): {string}
+        assert(type(value) == 'table', 'Expected a selection table')
+        local result: {string} = {}
+        local seen = {}
+        for _, item in ipairs(value) do
+            local itemName = item :: string
+            single(itemName)
+            assert(not seen[itemName], 'Duplicate selection option')
+            seen[itemName] = true
+            table.insert(result, itemName)
+        end
+        table.sort(result, function(a, b)
+            local ia = table.find(options, a) :: number
+            local ib = table.find(options, b) :: number
+            return ia < ib
+        end)
+        return result
+    end
+end
+
 function Value.text(maxLength: number): (any) -> string
     Value.finite(maxLength)
     assert(maxLength >= 0 and maxLength % 1 == 0, 'MaxLength must be a nonnegative integer')
@@ -2222,11 +2458,11 @@ return Value
         </Properties>
       </Item>
     </Item>
-    <Item class="Folder" referent="30">
+    <Item class="Folder" referent="31">
       <Properties>
         <string name="Name">Themes</string>
       </Properties>
-      <Item class="ModuleScript" referent="31">
+      <Item class="ModuleScript" referent="32">
         <Properties>
           <string name="Name">Blossom</string>
           <string name="Source"><![CDATA[--!strict
@@ -2249,7 +2485,7 @@ return table.freeze({
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="32">
+      <Item class="ModuleScript" referent="33">
         <Properties>
           <string name="Name">Presets</string>
           <string name="Source"><![CDATA[--!nonstrict
@@ -2289,7 +2525,7 @@ return Presets
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="33">
+      <Item class="ModuleScript" referent="34">
         <Properties>
           <string name="Name">Tokens</string>
           <string name="Source"><![CDATA[--!strict
@@ -2298,10 +2534,11 @@ return table.freeze({
     Width = 422, Height = 336, Sidebar = 103, Gutter = 8,
     Radius = 7, CardRadius = 4, ControlRadius = 3,
     TextSize = 10, SmallText = 9, TitleSize = 13,
-    RowHeight = 22, FieldHeight = 20, SliderHeight = 34,
-    NavHeight = 23, SectionHeader = 24, ControlGap = 3,
-    HoverTime = 0.09, ToggleTime = 0.12,
-    PopupRow = 22, PopupMaxHeight = 144,
+    RowHeight = 18, FieldHeight = 18, SliderHeight = 30,
+    NavHeight = 21, SectionHeader = 21, ControlGap = 2,
+    HoverTime = 0.09, ToggleTime = 0.12, PageFadeOut = 0.10, PageFadeIn = 0.15,
+    SidebarMove = 0.30, PopupTime = 0.12, SectionCollapse = 0.18,
+    PopupRow = 20, PopupMaxHeight = 144,
 })
 ]]></string>
         </Properties>

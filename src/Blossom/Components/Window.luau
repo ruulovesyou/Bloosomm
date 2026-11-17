@@ -21,6 +21,10 @@ function Window.new(context, options)
     context.Scale = r:Create('UIScale', {Scale = options.Scale}, root)
     r:Corner(root, Tokens.Radius)
     r:Stroke(root)
+    local gradient = r:Create('UIGradient', {Name = 'WindowGradient', Rotation = 90}, root)
+    context.Theme:Subscribe(context.Cleanup, function()
+        gradient.Color = ColorSequence.new(context.Theme:Get('Background'), context.Theme:Get('Tab'))
+    end)
     local shadow = r:Create('Frame', {
         Name = 'Shadow', Position = UDim2.fromOffset(-3, 3), Size = UDim2.new(1, 6, 1, 3),
         ZIndex = 9, BackgroundTransparency = 0.65,

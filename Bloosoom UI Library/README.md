@@ -1,6 +1,37 @@
 # Blossom UI Library — standalone Luau distribution
 
-This folder is the GitHub-style library distribution. It contains the complete 31-module Luau source tree under `Source/Blossom`, separate from the demo and repository tooling.
+This folder is the GitHub-style library distribution. It contains the complete 32-module Luau source tree under `Source/Blossom`, separate from the demo and repository tooling.
+
+## Quick Start (loadstring)
+
+Load the pre-built single-file bundle directly via GitHub:
+
+```lua
+local Blossom = loadstring(game:HttpGet("https://raw.githubusercontent.com/ruulovesyou/Bloosomm/main/Blossom/Blossom.lua"))()
+
+local win = Blossom:CreateWindow({
+    Name = "Blossom Hub",
+    Subtitle = "example",
+    Theme = "Blossom",
+    Size = UDim2.fromOffset(420, 340),
+})
+```
+
+See [example-hub.lua](file:///C:/Dev/Projec/GUI/Bloosoom%20UI/Bloosoom%20UI%20Library/example-hub.lua) for a complete multi-tab script with Toggles, Sliders, Dropdowns, ColorPickers, Keybinds, ESP, and Config Profiles.
+
+## GitHub Repository Structure
+
+When publishing to `ruulovesyou/Bloosomm` (`main` branch), the repository layout must have `Blossom/` at the root so that `https://raw.githubusercontent.com/ruulovesyou/Bloosomm/main/Blossom/Blossom.lua` resolves:
+
+```
+Blossom/
+  Components/
+  Core/
+  Themes/
+  Blossom.lua      <-- single-file loadstring bundle
+  init.luau        <-- modular Luau entry point
+example-hub.lua    <-- complete example script
+```
 
 ## Install with Rojo
 
@@ -36,6 +67,13 @@ tab:CreateToggle({
 })
 ```
 
-The public entry point is `Source/Blossom/init.luau`. `BlossomUI.luau` remains as a convenience facade for projects that already installed the built library model. For the complete API, read the repository-level README.
+## Structure & Building
 
-This library is UI-only. It does not contain remotes, gameplay logic, executor code, DataStores, or file persistence. Run it from a client `LocalScript` because it creates UI under `PlayerGui`.
+- `Source/Blossom/init.luau`: Canonical modular entry point.
+- `Source/Blossom/Blossom.lua`: Single-file bundle generated with virtual module tree (`__node` / `__register` / `__require`), enabling `loadstring` without file system access.
+- `Blossom.lua`: Root copy of the bundle for direct inclusion.
+- `example-hub.lua`: Full hub script using `loadstring`, tabs, sections, loops, highlights, and profile saving.
+- `tools/build_bundle.py`: Rebuilds `Blossom.lua` from source files in seconds (`python tools/build_bundle.py`).
+- `build.lua`: Lune-compatible builder (`lune run build.lua --local`).
+
+This library is UI-only. It creates UI under `PlayerGui` or `CoreGui`. It does not contain server remotes, gameplay exploits, or file system access.

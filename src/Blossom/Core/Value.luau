@@ -51,6 +51,30 @@ function Value.dropdown(options: {string}): (any) -> string
     end
 end
 
+function Value.multiselect(options: {string}): (any) -> {string}
+    local single = Value.dropdown(options)
+    local members = {}
+    for _, option in ipairs(options) do members[option] = true end
+    return function(value: any): {string}
+        assert(type(value) == 'table', 'Expected a selection table')
+        local result: {string} = {}
+        local seen = {}
+        for _, item in ipairs(value) do
+            local itemName = item :: string
+            single(itemName)
+            assert(not seen[itemName], 'Duplicate selection option')
+            seen[itemName] = true
+            table.insert(result, itemName)
+        end
+        table.sort(result, function(a, b)
+            local ia = table.find(options, a) :: number
+            local ib = table.find(options, b) :: number
+            return ia < ib
+        end)
+        return result
+    end
+end
+
 function Value.text(maxLength: number): (any) -> string
     Value.finite(maxLength)
     assert(maxLength >= 0 and maxLength % 1 == 0, 'MaxLength must be a nonnegative integer')

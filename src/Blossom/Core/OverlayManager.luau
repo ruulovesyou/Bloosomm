@@ -3,6 +3,7 @@ local UserInputService = game:GetService('UserInputService')
 local GuiService = game:GetService('GuiService')
 local Cleanup = require(script.Parent.Cleanup)
 local Renderer = require(script.Parent.Renderer)
+local Tokens = require(script.Parent.Parent.Themes.Tokens)
 local OverlayManager = {}
 OverlayManager.__index = OverlayManager
 
@@ -34,7 +35,12 @@ function OverlayManager:Close()
     local selected = GuiService.SelectedObject
     if selected and selected:IsDescendantOf(current.frame) then GuiService.SelectedObject = nil end
     current.scope:Destroy()
-    current.frame:Destroy()
+    if current.frame.Parent then
+        self.context.Renderer:Tween(current.frame, {BackgroundTransparency = 1}, Tokens.PopupTime)
+        task.delay(Tokens.PopupTime, function()
+            if current.frame.Parent then current.frame:Destroy() end
+        end)
+    end
     if current.closed then current.closed() end
 end
 
@@ -57,8 +63,9 @@ function OverlayManager:Open(owner, anchor, requestedHeight, closed, settings)
     if y > maxY then y = anchor.AbsolutePosition.Y - height - edge end
     y = math.clamp(y, minY, maxY)
     local origin = self.layer.AbsolutePosition
+    local finalPosition = UDim2.fromOffset((x - origin.X) / scale, (y - origin.Y) / scale)
     local properties = {
-        Name = 'DropdownPopup', Position = UDim2.fromOffset((x - origin.X) / scale, (y - origin.Y) / scale),
+        Name = 'DropdownPopup', Position = UDim2.new(finalPosition.X.Scale, finalPosition.X.Offset, finalPosition.Y.Scale, finalPosition.Y.Offset + 4),
         Size = UDim2.fromOffset(width / scale, height / scale), ZIndex = settings.ZIndex or 30,
         Active = true, ClipsDescendants = true,
     }
@@ -68,12 +75,14 @@ function OverlayManager:Open(owner, anchor, requestedHeight, closed, settings)
         properties.ScrollBarThickness = 2
         properties.ScrollingDirection = Enum.ScrollingDirection.Y
     end
+    properties.BackgroundTransparency = context.Renderer.ReducedMotion and 0 or 1
     local frame = renderer:Create(settings.Freeform and 'Frame' or 'ScrollingFrame', properties, self.layer, {BackgroundColor3 = 'Background'})
     if not settings.Freeform then renderer.Theme:Bind(scope, frame, 'ScrollBarImageColor3', 'Accent') end
     renderer:Corner(frame, 4)
     renderer:Stroke(frame)
     if not settings.Freeform then renderer:Padding(frame, 3); renderer:List(frame, 1) end
     self.current = {owner = owner, anchor = anchor, frame = frame, scope = scope, closed = closed}
+    renderer:Tween(frame, {BackgroundTransparency = 0, Position = finalPosition}, Tokens.PopupTime)
     renderer:Connect(anchor:GetPropertyChangedSignal('AbsolutePosition'), function() self:Close() end)
     renderer:Connect(anchor:GetPropertyChangedSignal('AbsoluteSize'), function() self:Close() end)
     return frame, renderer

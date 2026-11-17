@@ -1,4 +1,7 @@
 {
   "name": "Blossom",
+  "globIgnorePaths": [
+    "**/Blossom.lua"
+  ],
   "tree": { "$path": "Source/Blossom" }
 }

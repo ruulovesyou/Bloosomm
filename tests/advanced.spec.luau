@@ -1,5 +1,6 @@
 local Records = require('../src/Blossom/Core/Records')
 local ProfileStore = require('../src/Blossom/Core/ProfileStore')
+local Value = require('../src/Blossom/Core/Value')
 local count = 0
 local function test(name, callback) callback(); count += 1; print('PASS ' .. name) end
 local function rejects(callback) assert(not pcall(callback)) end
@@ -24,6 +25,14 @@ test('structured values validate and compare without aliasing', function()
     rejects(function() Records.Color({R = 1, G = 0, B = 0, Animation = 'Bad'}) end)
     assert(Records.Keybind({Key = 'F', Mode = 'hold'}).Mode == 'hold')
     rejects(function() Records.Keybind({Key = 'F', Mode = 'bad'}) end)
+end)
+test('multi-select and range values normalize deterministically', function()
+    local select = Value.multiselect({'Head', 'Torso', 'Arms'})
+    local selected = select({'Arms', 'Head'})
+    assert(selected[1] == 'Head' and selected[2] == 'Arms')
+    rejects(function() select({'Head', 'Head'}) end)
+    local range = Value.slider(20, 80, 5)
+    assert(range(22) == 20 and range(78) == 80)
 end)
 test('profiles create/load/overwrite/delete and isolate snapshots', function()
     local profiles = ProfileStore.new()

@@ -6,6 +6,19 @@ import xml.etree.ElementTree as ET
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def check_source_sync():
+    canonical = ROOT / 'src' / 'Blossom'
+    distribution = ROOT / 'Bloosoom UI Library' / 'Source' / 'Blossom'
+    canonical_files = {p.relative_to(canonical).as_posix() for p in canonical.rglob('*.luau')}
+    distribution_files = {p.relative_to(distribution).as_posix() for p in distribution.rglob('*.luau')}
+    assert canonical_files == distribution_files, 'Standalone source tree is out of sync'
+    for relative in canonical_files:
+        left = (canonical / relative).read_bytes()
+        right = (distribution / relative).read_bytes()
+        assert left == right, f'Standalone source differs: {relative}'
+    print(f'PASS standalone source sync: {len(canonical_files)} Luau files')
+
+
 def check_package(path: Path):
     tree = ET.parse(path)
     nodes, parents, children, sources = {}, {}, {}, {}
@@ -62,5 +75,6 @@ def check_package(path: Path):
     print(f'PASS {path.name}: {len(modules)} modules, {sum(map(len, graph.values()))} resolved dependency edges, no cycles, {len(local_scripts)} client entry points')
 
 
+check_source_sync()
 for artifact in ['Blossom.rbxmx', 'BlossomDemo.rbxlx']:
     check_package(ROOT / 'build' / artifact)

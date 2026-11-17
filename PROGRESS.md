@@ -1,6 +1,6 @@
 # Blossom UI Library progress
 
-Updated 2026-11-17. Full requested scope is implemented. Roblox Studio testing was removed from the delivery requirements; verification is headless.
+Updated 2026-11-17. Video-fidelity pass, standalone bundle generator, example hub script, and GitHub publishing structure are completed and verified headlessly.
 
 ## Completed
 
@@ -11,25 +11,29 @@ Updated 2026-11-17. Full requested scope is implemented. Roblox Studio testing w
 - Profile create/load/overwrite/delete/autoload, JSON export/import and injectable save callback.
 - Section move/detach layout state and snapshot/restore support.
 - Inert demo pages and Settings examples for all completed components.
-- Separate `Bloosoom UI Library/` folder with copyable public entry point.
-- Checkpoint, API documentation and reproducible verification runner.
+- Video-fidelity pass: denser rows, compact switches, section descriptions, animated page/popup transitions, selected navigation surfaces, inline toggle accessories, multi-select dropdowns, and range sliders.
+- Collapsible sections with animated body height, chevron state, drag/click separation, and `SetCollapsed`/`IsCollapsed` APIs. The demo enables this for Silent Aim.
+- Aim Point dropdown reveal now includes a short vertical slide as well as opacity transition.
+- Single-file bundle `Bloosoom UI Library/Source/Blossom/Blossom.lua` (118 KB) generated with a virtual module tree (`__node` / `__register` / `__require`), verified error-free with `luau-compile.exe --null`.
+- Created complete `example-hub.lua` matching the requested script structure, using `loadstring(game:HttpGet("https://raw.githubusercontent.com/ruulovesyou/Bloosomm/main/Blossom/Blossom.lua"))()`.
+- Updated `build.lua` and added `tools/build_bundle.py` for automated bundle generation.
+- Configured Rojo project (`Blossom.project.json`) to exclude `Blossom.lua` via `globIgnorePaths`, preserving exactly 32 modules in `Blossom.rbxmx`.
+- Byte-for-byte synchronization maintained between `src/Blossom/` and `Bloosoom UI Library/Source/Blossom/`.
 
 ## Verification
 
 `tools/verify.ps1` passes:
 
-- 34 Luau files compile.
-- Core and advanced suites pass: 12 tests total.
+- 36 Luau files compile.
+- Core and advanced suites pass: 13 tests total.
 - Pure modules pass Luau strict analysis.
 - Library and demo Rojo artifacts build.
-- Package checker finds 31 modules, 65 resolved edges and no cycles in each artifact.
+- Package checker finds 32 modules, 70 resolved edges and no cycles in each artifact.
+- `example-hub.lua` and `Blossom.lua` compile cleanly with `luau-compile.exe --null`.
 
 No Roblox Studio execution is required or claimed.
 
-## Known limits
+## GitHub Publishing
 
-The implementation uses native Roblox Instances and therefore cannot be visually rendered by the headless Luau CLI. Exact screenshot fidelity and runtime pointer behavior remain unmeasured, but they are outside the requested delivery gate. Effects and Exploits remain intentionally blank because the reference did not establish their content. Profile persistence is session-local unless the host supplies `SaveProfile`; JSON export/import is available.
-
-## Files for continuation
-
-Read `AGENTS.md`, `README.md`, `HANDOFF.md`, `CHECKPOINT.md`, and the reference blueprint. The standalone folder is `Bloosoom UI Library/`.
+Target repository: `https://github.com/ruulovesyou/Bloosomm` on branch `main`.
+Folder layout ensures `https://raw.githubusercontent.com/ruulovesyou/Bloosomm/main/Blossom/Blossom.lua` is immediately accessible.

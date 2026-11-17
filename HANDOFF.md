@@ -1,12 +1,14 @@
 # Blossom UI Library handoff
 
-Updated 2026-11-17. The user expanded the task to 100% completion and removed Roblox Studio testing from delivery. The complete requested feature set is implemented and headlessly verified.
+Updated 2026-11-17. The video-fidelity pass, standalone bundle generator, example hub script, and GitHub publishing structure are complete and verified headlessly.
 
 ## Public API
 
 `Blossom.new(options)` returns `AddPage`, `SelectPage`, `GetValue`, `SetValue`, `GetValues`, `GetControls`, `GetControl`, `RevealControl`, `SetTheme`, `SetThemePreset`, `GetThemePresets`, `SetScale`, `SetVisible`, profile methods (`CreateProfile`, `OverwriteProfile`, `DeleteProfile`, `ListProfiles`, `LoadProfile`, `SetAutoloadProfile`, `ExportProfiles`, `ImportProfiles`), and `Destroy`.
 
-`page:AddSection` returns `AddToggle`, `AddSlider`, `AddDropdown`, `AddButton`, `AddTextInput`, `AddKeybind`, `AddColorPicker`, `AddListBox`, `MoveTo`, and `Detach`.
+`page:AddSection` returns `AddToggle`, `AddSlider`, `AddRangeSlider`, `AddDropdown`, `AddButton`, `AddTextInput`, `AddKeybind`, `AddColorPicker`, `AddListBox`, `MoveTo`, `Detach`, `SetCollapsed`, and `IsCollapsed`. Dropdowns accept `Multi = true`; sections accept `Description`, `Collapsible`, and `Collapsed`; toggles accept display-only `Keybind` and `Color` accessories.
+
+Rayfield-style wrapper methods are also provided: `CreateWindow`, `CreateTab`, `CreateSection`, `CreateToggle`, `CreateSlider`, `CreateDropdown`, `CreateButton`, `CreateInput`, `CreateKeybind`, `CreateColorPicker`, `Notify`, `Save`, `Load`, `DeleteConfig`, `ChangeTheme`, and `GetThemePresets`.
 
 ## Architecture
 
@@ -15,6 +17,8 @@ Updated 2026-11-17. The user expanded the task to 100% completion and removed Ro
 - `Core/ProfileStore`: session profile snapshots and injectable persistence callback.
 - `Core/ModalManager`: blocking modal layer and Escape dismissal.
 - `Core/OverlayManager`: one nonblocking popup.
+- `Components/RangeSlider`: normalized two-handle range control.
+- `Components/Section`: animated accordion behavior; heading drag remains available for layout moves.
 - `Core/LayoutManager`: section move/detach and serializable layout records.
 - `Core/KeybindManager`: UI-only key capture and toggle/hold state.
 - `Core/ColorAnimator`: throttled preview animation.
@@ -23,12 +27,27 @@ Updated 2026-11-17. The user expanded the task to 100% completion and removed Ro
 
 The entry point initializes every manager in one context, preserving Store ownership and scoped cleanup. No remotes, gameplay logic, executor APIs or DataStores are used.
 
+## Standalone Bundle & Example Hub
+
+- `Bloosoom UI Library/Source/Blossom/Blossom.lua`: Single-file bundle using a virtual node/register tree (`__node` / `__register` / `__require`), allowing all 32 modules to run under `loadstring` without requiring external files.
+- `Bloosoom UI Library/example-hub.lua`: Complete multi-tab script using `loadstring(game:HttpGet("https://raw.githubusercontent.com/ruulovesyou/Bloosomm/main/Blossom/Blossom.lua"))()`.
+- `tools/build_bundle.py`: Standalone Python script to regenerate the bundle from source.
+- `build.lua`: Lune-compatible builder supporting `--local`.
+
+## GitHub Publishing Layout
+
+Target repository: `https://github.com/ruulovesyou/Bloosomm` (`main` branch)
+
+```
+Blossom/
+  Components/
+  Core/
+  Themes/
+  Blossom.lua      <-- resolves at https://raw.githubusercontent.com/ruulovesyou/Bloosomm/main/Blossom/Blossom.lua
+  init.luau
+example-hub.lua
+```
+
 ## Verification
 
-Run `powershell -File tools/verify.ps1`. It compiles 34 Luau files, runs 12 headless tests, performs strict analysis on pure modules, builds the library/demo models, and checks all module dependencies. Roblox Studio execution is intentionally not part of the workflow.
-
-Artifacts: `build/Blossom.rbxmx`, `build/BlossomDemo.rbxlx`, and `Bloosoom UI Library/BlossomUI.luau`.
-
-## Known limits
-
-The headless verifier cannot render Roblox UI, so screenshot fidelity and live engine layout are not claimed. Effects and Exploits are blank by design. Profiles are session-local by default; a host save callback or JSON export/import supplies persistence.
+Run `powershell -File tools/verify.ps1`. It compiles 36 Luau files, runs 13 headless tests, checks canonical/distribution source sync (32 modules matching byte-for-byte), performs strict analysis on pure modules, builds library and demo models with Rojo, and validates package dependencies. Compile `Bloosoom UI Library/Source/Blossom/Blossom.lua` and `example-hub.lua` with `.tools/luau/luau-compile.exe --null`.

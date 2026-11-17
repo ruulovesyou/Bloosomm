@@ -35,6 +35,11 @@ local function option(options, lower, upper, fallback)
     return fallback
 end
 
+local function safeCallback(callback, ...)
+    local ok, problem = pcall(callback, ...)
+    if not ok then warn('[Blossom callback] ' .. tostring(problem)) end
+end
+
 local function elementOptions(options, kind)
     local name = option(options, 'name', 'Name', kind)
     local result = table.clone(options)
@@ -52,7 +57,19 @@ local function pageAdapter(page)
         if options.flag == nil and options.Flag == nil then result.Id = page.Id .. '_' .. result.Id end
         return result
     end
-    function adapter:CreateSection(options) return page:AddSection({Id = slug(option(options, 'name', 'Name', 'section')), Title = option(options, 'name', 'Name', 'Section'), Column = option(options, 'column', 'Column', 1)}) end
+    function adapter:CreateSection(options)
+        options = options or {}
+        local section = page:AddSection({
+            Id = slug(option(options, 'name', 'Name', 'section')),
+            Title = option(options, 'name', 'Name', 'Section'),
+            Column = option(options, 'column', 'Column', 1),
+            Description = option(options, 'description', 'Description', nil),
+            Collapsible = option(options, 'collapsible', 'Collapsible', false),
+            Collapsed = option(options, 'collapsed', 'Collapsed', false),
+        })
+        self._section = section
+        return section
+    end
     function adapter:CreateToggle(options) return self._section:AddToggle(scoped(options, 'Toggle')) end
     function adapter:CreateSlider(options)
         local result = scoped(options, 'Slider')
@@ -65,16 +82,28 @@ local function pageAdapter(page)
     function adapter:CreateDropdown(options)
         local result = scoped(options, 'Dropdown')
         result.Options = option(options, 'options', 'Options', {})
-        result.Default = option(options, 'value', 'Value', result.Options[1])
-        assert(not option(options, 'multiSelect', 'MultiSelect', false), 'Blossom dropdowns currently support single selection only')
+        result.Multi = option(options, 'multiSelect', 'MultiSelect', false) or option(options, 'multi', 'Multi', false)
+        result.Default = option(options, 'value', 'Value', if result.Multi then {} else result.Options[1])
         return self._section:AddDropdown(result)
     end
-    function adapter:CreateButton(options) return self._section:AddButton({Id = slug(option(options, 'flag', 'Flag', option(options, 'name', 'Name', 'button'))), Label = option(options, 'name', 'Name', 'Button'), OnClick = option(options, 'callback', 'Callback', nil)}) end
+    function adapter:CreateButton(options)
+        local result = scoped(options, 'Button')
+        return self._section:AddButton({
+            Id = result.Id,
+            Label = option(options, 'name', 'Name', 'Button'),
+            OnClick = option(options, 'callback', 'Callback', nil),
+        })
+    end
     function adapter:CreateInput(options) return self._section:AddTextInput(scoped(options, 'Input')) end
     function adapter:CreateKeybind(options)
         local result = scoped(options, 'Keybind')
-        local value = option(options, 'value', 'Value', Enum.KeyCode.Unknown)
-        result.Default = {Key = typeof(value) == 'EnumItem' and value.Name or tostring(value), Mode = option(options, 'hold', 'Hold', false) and 'hold' or 'toggle'}
+        local value = option(options, 'value', 'Value', 'None')
+        local key = if typeof(value) == 'EnumItem' then value.Name else tostring(value)
+        if key == 'Unknown' then key = 'None' end
+        result.Default = {
+            Key = key,
+            Mode = option(options, 'hold', 'Hold', false) and 'hold' or 'toggle',
+        }
         result.OnTriggered = option(options, 'callback', 'Callback', nil)
         return self._section:AddKeybind(result)
     end
@@ -82,6 +111,16 @@ local function pageAdapter(page)
         local color = option(options, 'color', 'Color', Color3.fromRGB(116, 169, 227))
         local result = scoped(options, 'ColorPicker')
         result.Default = {R = color.R, G = color.G, B = color.B, Alpha = 1, Animation = 'None'}
+        local callback = result.OnChanged
+        if callback then
+            result.OnChanged = function(value)
+                if type(value) == 'table' and value.R and value.G and value.B then
+                    safeCallback(callback, Color3.new(value.R, value.G, value.B))
+                else
+                    safeCallback(callback, value)
+                end
+            end
+        end
         return self._section:AddColorPicker(result)
     end
     function adapter:CreateList(options)
@@ -103,7 +142,11 @@ function Blossom.new(options)
     assert(typeof(size) == 'UDim2' and size.X.Scale == 0 and size.Y.Scale == 0, 'Size must use pixel offsets')
     options.Width, options.Height = Value.finite(size.X.Offset), Value.finite(size.Y.Offset)
     assert(options.Width >= 360 and options.Height >= 260, 'Minimum window size is 360 x 260')
-    assert(options.Theme == nil or options.Theme == 'Blossom' or type(options.Theme) == 'table', 'Only Blossom preset or token overrides are available')
+    local theme = options.Theme
+    if type(theme) == 'string' and theme ~= 'Blossom' and table.find(Presets.Names, theme) then
+        options.Theme = Presets.Get(theme)
+    end
+    assert(options.Theme == nil or options.Theme == 'Blossom' or type(options.Theme) == 'table', 'Only Blossom preset, known presets, or token overrides are available')
     assert(options.ReducedMotion == nil or type(options.ReducedMotion) == 'boolean', 'ReducedMotion must be boolean')
     if options.DisplayOrder ~= nil then Value.finite(options.DisplayOrder) end
     if options.Parent == nil then
@@ -139,7 +182,7 @@ function Blossom:CreateWindow(options)
         Title = option(options, 'name', 'Name', 'Blossom'),
         Size = options.Size,
         Scale = options.Scale or 1,
-        Theme = theme == 'default' and 'Blossom' or theme,
+        Theme = if theme == 'default' then 'Blossom' else theme,
         ReducedMotion = options.ReducedMotion,
         Parent = options.Parent,
         SaveProfile = options.SaveProfile,
@@ -151,7 +194,8 @@ function Blossom:CreateWindow(options)
         local page = self:AddPage({Id = option(tabOptions, 'flag', 'Flag', slug(option(tabOptions, 'name', 'Name', 'tab'))), Title = option(tabOptions, 'name', 'Name', 'Tab'), Group = option(tabOptions, 'group', 'Group', '')})
         local adapter = pageAdapter(page)
         function adapter:CreateSection(sectionOptions)
-            local section = page:AddSection({Id = slug(option(sectionOptions or {}, 'name', 'Name', 'section')), Title = option(sectionOptions or {}, 'name', 'Name', 'Section'), Column = option(sectionOptions or {}, 'column', 'Column', 1)})
+            sectionOptions = sectionOptions or {}
+            local section = page:AddSection({Id = slug(option(sectionOptions, 'name', 'Name', 'section')), Title = option(sectionOptions, 'name', 'Name', 'Section'), Column = option(sectionOptions, 'column', 'Column', 1), Description = option(sectionOptions, 'description', 'Description', nil), Collapsible = option(sectionOptions, 'collapsible', 'Collapsible', false), Collapsed = option(sectionOptions, 'collapsed', 'Collapsed', false)})
             self._section = section
             return section
         end
@@ -163,7 +207,10 @@ function Blossom:CreateWindow(options)
         return {Name = option(options or {}, 'name', 'Name', 'Section')}
     end
     function window:ChangeTheme(value) if value == 'default' then value = 'Blossom' end; self:SetThemePreset(value) end
-    function window:Save(name) self:CreateProfile(name or 'Default') end
+    function window:Save(name)
+        name = name or 'Default'
+        if table.find(self:ListProfiles(), name) then self:OverwriteProfile(name) else self:CreateProfile(name) end
+    end
     function window:Load(name) self:LoadProfile(name or 'Default') end
     function window:ListConfigs() return self:ListProfiles() end
     function window:DeleteConfig(name) self:DeleteProfile(name) end
@@ -201,11 +248,28 @@ function Blossom:SelectPage(id)
     self:_ReleaseFocus()
     context.Input:Cancel()
     context.Overlay:Close()
+    local previous = context.CurrentPage and context.Pages[context.CurrentPage]
     context.CurrentPage = id
-    for pageId, page in pairs(context.Pages) do
-        page.Frame.Visible = pageId == id
-        page.Floating.Visible = pageId == id
+    local nextPage = context.Pages[id]
+    local function show(page, visible, transparency)
+        if not page then return end
+        page.Frame.Visible = visible
+        page.Floating.Visible = visible
+        context.Renderer:Tween(page.Frame, {GroupTransparency = transparency}, visible and Tokens.PageFadeIn or Tokens.PageFadeOut)
     end
+    if previous and previous ~= nextPage then
+        show(previous, true, 1)
+        task.delay(context.Renderer.ReducedMotion and 0 or Tokens.PageFadeOut, function()
+            if not context.Destroyed and context.CurrentPage == id then show(previous, false, 1) end
+        end)
+    end
+    for pageId, page in pairs(context.Pages) do
+        if page ~= previous and page ~= nextPage then show(page, false, 1) end
+    end
+    show(nextPage, true, 1)
+    task.delay(context.Renderer.ReducedMotion and 0 or Tokens.PageFadeIn, function()
+        if not context.Destroyed and context.CurrentPage == id then show(nextPage, true, 0) end
+    end)
     context.Sidebar:Refresh()
 end
 
