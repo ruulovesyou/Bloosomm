@@ -28,6 +28,74 @@ local Page = require(script.Components.Page)
 local Blossom = {}
 Blossom.__index = Blossom
 
+local function slug(value)
+    local id = string.lower(tostring(value or 'control')):gsub('[^%w]+', '_'):gsub('^_+', ''):gsub('_+$', '')
+    return id ~= '' and id or 'control'
+end
+
+local function option(options, lower, upper, fallback)
+    if options[lower] ~= nil then return options[lower] end
+    if options[upper] ~= nil then return options[upper] end
+    return fallback
+end
+
+local function elementOptions(options, kind)
+    local name = option(options, 'name', 'Name', kind)
+    local result = table.clone(options)
+    result.Id = option(options, 'flag', 'Flag', slug(name))
+    result.Label = name
+    result.Default = option(options, 'value', 'Value', option(options, 'default', 'Default', nil))
+    result.OnChanged = option(options, 'callback', 'Callback', option(options, 'onChanged', 'OnChanged', nil))
+    return result
+end
+
+local function pageAdapter(page)
+    local adapter = {Raw = page}
+    local function scoped(options, kind)
+        local result = elementOptions(options, kind)
+        if options.flag == nil and options.Flag == nil then result.Id = page.Id .. '_' .. result.Id end
+        return result
+    end
+    function adapter:CreateSection(options) return page:AddSection({Id = slug(option(options, 'name', 'Name', 'section')), Title = option(options, 'name', 'Name', 'Section'), Column = option(options, 'column', 'Column', 1)}) end
+    function adapter:CreateToggle(options) return self._section:AddToggle(scoped(options, 'Toggle')) end
+    function adapter:CreateSlider(options)
+        local result = scoped(options, 'Slider')
+        local range = option(options, 'range', 'Range', {0, 100})
+        result.Minimum, result.Maximum = range[1], range[2]
+        result.Step = option(options, 'increment', 'Increment', 1)
+        result.Unit = option(options, 'suffix', 'Suffix', '')
+        return self._section:AddSlider(result)
+    end
+    function adapter:CreateDropdown(options)
+        local result = scoped(options, 'Dropdown')
+        result.Options = option(options, 'options', 'Options', {})
+        result.Default = option(options, 'value', 'Value', result.Options[1])
+        assert(not option(options, 'multiSelect', 'MultiSelect', false), 'Blossom dropdowns currently support single selection only')
+        return self._section:AddDropdown(result)
+    end
+    function adapter:CreateButton(options) return self._section:AddButton({Id = slug(option(options, 'flag', 'Flag', option(options, 'name', 'Name', 'button'))), Label = option(options, 'name', 'Name', 'Button'), OnClick = option(options, 'callback', 'Callback', nil)}) end
+    function adapter:CreateInput(options) return self._section:AddTextInput(scoped(options, 'Input')) end
+    function adapter:CreateKeybind(options)
+        local result = scoped(options, 'Keybind')
+        local value = option(options, 'value', 'Value', Enum.KeyCode.Unknown)
+        result.Default = {Key = typeof(value) == 'EnumItem' and value.Name or tostring(value), Mode = option(options, 'hold', 'Hold', false) and 'hold' or 'toggle'}
+        result.OnTriggered = option(options, 'callback', 'Callback', nil)
+        return self._section:AddKeybind(result)
+    end
+    function adapter:CreateColorPicker(options)
+        local color = option(options, 'color', 'Color', Color3.fromRGB(116, 169, 227))
+        local result = scoped(options, 'ColorPicker')
+        result.Default = {R = color.R, G = color.G, B = color.B, Alpha = 1, Animation = 'None'}
+        return self._section:AddColorPicker(result)
+    end
+    function adapter:CreateList(options)
+        local result = scoped(options, 'ListBox')
+        result.Options = option(options, 'options', 'Options', {})
+        return self._section:AddListBox(result)
+    end
+    return adapter
+end
+
 function Blossom.new(options)
     options = table.clone(options or {})
     options.Title = options.Title or 'Blossom'
@@ -65,6 +133,47 @@ function Blossom.new(options)
     context.Search = {Open = function() SearchDialog.Open(context) end}
     context.Sidebar = Sidebar.new(context, options.Title)
     return self
+end
+
+-- Rayfield-style public facade. The explicit AddPage/AddSection API remains available.
+function Blossom:CreateWindow(options)
+    options = options or {}
+    local theme = option(options, 'theme', 'Theme', 'Blossom')
+    local window = Blossom.new({
+        Title = option(options, 'name', 'Name', 'Blossom'),
+        Size = options.Size,
+        Scale = options.Scale or 1,
+        Theme = theme == 'default' and 'Blossom' or theme,
+        ReducedMotion = options.ReducedMotion,
+        Parent = options.Parent,
+        SaveProfile = options.SaveProfile,
+    })
+    window.Subtitle = option(options, 'subtitle', 'Subtitle', '')
+    window.Configuration = option(options, 'configuration', 'Configuration', nil)
+    function window:CreateTab(tabOptions)
+        tabOptions = tabOptions or {}
+        local page = self:AddPage({Id = option(tabOptions, 'flag', 'Flag', slug(option(tabOptions, 'name', 'Name', 'tab'))), Title = option(tabOptions, 'name', 'Name', 'Tab'), Group = option(tabOptions, 'group', 'Group', '')})
+        local adapter = pageAdapter(page)
+        function adapter:CreateSection(sectionOptions)
+            local section = page:AddSection({Id = slug(option(sectionOptions or {}, 'name', 'Name', 'section')), Title = option(sectionOptions or {}, 'name', 'Name', 'Section'), Column = option(sectionOptions or {}, 'column', 'Column', 1)})
+            self._section = section
+            return section
+        end
+        function adapter:UseSection(section) self._section = section; return self end
+        function adapter:CreateGroup() return self end
+        return adapter
+    end
+    function window:CreateSection(options)
+        return {Name = option(options or {}, 'name', 'Name', 'Section')}
+    end
+    function window:ChangeTheme(value) if value == 'default' then value = 'Blossom' end; self:SetThemePreset(value) end
+    function window:Save(name) self:CreateProfile(name or 'Default') end
+    function window:Load(name) self:LoadProfile(name or 'Default') end
+    function window:ListConfigs() return self:ListProfiles() end
+    function window:DeleteConfig(name) self:DeleteProfile(name) end
+    function window:Navigate(id) self:SelectPage(id) end
+    function window:Notify(data) warn('[Blossom notification] ' .. tostring(data and (data.title or data.Title) or 'Notification') .. ': ' .. tostring(data and (data.content or data.Content) or '')) end
+    return window
 end
 
 function Blossom:AddPage(options)

@@ -15,27 +15,24 @@ Insert the resulting `Blossom.rbxmx` model into `ReplicatedStorage` as `Blossom`
 ```lua
 local Blossom = require(game:GetService("ReplicatedStorage"):WaitForChild("Blossom"))
 
-local ui = Blossom.new({
-    Title = "Blossom",
-    Theme = "Blossom",
+local window = Blossom:CreateWindow({
+    name = "Blossom",
+    subtitle = "Blossom UI Library",
+    theme = "Blossom",
 })
 
-local page = ui:AddPage({
-    Id = "demo",
-    Title = "Demo",
-    Group = "General",
+local tab = window:CreateTab({
+    name = "Home",
 })
 
-local section = page:AddSection({
-    Id = "controls",
-    Title = "Controls",
-    Column = 1,
-})
+tab:CreateSection({name = "Controls"})
 
-section:AddToggle({
-    Id = "enabled",
-    Label = "Enabled",
-    Default = false,
+tab:CreateToggle({
+    name = "Enabled",
+    value = false,
+    callback = function(value)
+        print("Enabled:", value)
+    end,
 })
 ```
 
